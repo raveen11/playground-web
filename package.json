@@ -1,0 +1,17 @@
+{
+  "name": "multiplayer-kanban",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @kanban/web --filter @kanban/ws-server run dev",
+    "dev:web": "pnpm --filter @kanban/web dev",
+    "dev:ws": "pnpm --filter @kanban/ws-server dev",
+    "build": "pnpm -r run build",
+    "db:generate": "pnpm --filter @kanban/web db:generate",
+    "db:migrate": "pnpm --filter @kanban/web db:migrate",
+    "db:push": "pnpm --filter @kanban/web db:push"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
