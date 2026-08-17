@@ -387,6 +387,19 @@ function handleChatMessage(ws: WebSocket, data: { boardId: string; userId: strin
   });
 }
 
+function handlePaperData(ws: WebSocket, data: { boardId: string; userId: string; paperData: string }) {
+  const client = getClientForSocket(ws);  
+  if (!client) {
+    respondError(ws, "Not joined to a board.", "not_joined");
+    return;
+  }   
+  roomManager.broadcast(client.boardId, {
+    type: "data:paper",
+    userId: client.userId,
+    paperData: data.paperData,
+  });
+}          
+
 function handleTypingMessage(ws: WebSocket, data: { boardId: string; userId: string; name: string; isTyping: boolean }) {
   const client = getClientForSocket(ws);
   if (!client) return;
@@ -432,11 +445,19 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if(input?.type === "data:paper"){
+      console.log("Received paper data:", input);
+      handlePaperData(ws, input);
+      return;
+    }
+
     const parseResult = InboundMessage.safeParse(input);
+
     if (!parseResult.success) {
       respondError(ws, "Invalid message shape.", "invalid_message");
       return;
     }
+
 
     const data = parseResult.data;
     switch (data.type) {
@@ -470,6 +491,9 @@ wss.on("connection", (ws) => {
       case "column:delete":
         handleColumnDelete(ws, data);
         break;
+      case "data:paper":
+        handlePaperData(ws, data);
+        break;  
       default:
         respondError(ws, "Unsupported message type.", "unsupported_type");
     }

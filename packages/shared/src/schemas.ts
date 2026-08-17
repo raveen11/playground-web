@@ -96,6 +96,14 @@ export const RequestSyncMsg = z.object({
   boardId: z.string(),
 });
 
+export const PaperMsg = z.object({
+  type: z.literal("data:paper"),
+  boardId: z.string(),
+  userId: z.string(),
+  paperData: z.string(),
+});
+
+
 export const InboundMessage = z.discriminatedUnion("type", [
   CursorMoveMsg,
   CardMoveMsg,
@@ -109,6 +117,7 @@ export const InboundMessage = z.discriminatedUnion("type", [
   ChatMessageEvent,
   TypingEvent,
   RequestSyncMsg,
+  PaperMsg,
 ]);
 
 export const PresenceUser = z.object({
@@ -198,7 +207,7 @@ export const OutboundMessage = z.discriminatedUnion("type", [
   }),
   TypingEvent,
 ]);
-
+export type PaperMsg = z.infer<typeof PaperMsg>;
 export type CursorMoveMsg = z.infer<typeof CursorMoveMsg>;
 export type CardMoveMsg = z.infer<typeof CardMoveMsg>;
 export type CardCreateMsg = z.infer<typeof CardCreateMsg>;
