@@ -1,3 +1,5 @@
+export * from "./whiteboard.types.js";
+export * from "./operations.types.js";
 export * from "./schemas.js";
 
 export const PRESENCE_COLORS = [

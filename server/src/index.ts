@@ -1,6 +1,7 @@
 import http from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { RoomManager } from "./rooms.js";
+import { WhiteboardManager } from "./whiteboard/manager.js";
 import {
   InboundMessage,
   RoleSchema,
@@ -20,6 +21,8 @@ import type {
   SyncStateMsg,
   Card,
   Column,
+  OperationEnvelope,
+  WhiteboardDocument,
 } from "@kanban/shared";
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -45,6 +48,7 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server });
 const roomManager = new RoomManager();
+const whiteboardManager = new WhiteboardManager();
 const boards = new Map<string, { id: string; name: string; roomCode: string; createdAt: string }>();
 const columns = new Map<string, Column[]>();
 const cards = new Map<string, Card[]>();
@@ -412,6 +416,67 @@ function handleTypingMessage(ws: WebSocket, data: { boardId: string; userId: str
   });
 }
 
+// ============================================================================
+// WHITEBOARD OPERATIONS
+// ============================================================================
+
+function handleDocumentJoin(ws: WebSocket, data: { documentId: string; userId: string; lastKnownVersion: number }) {
+  const document = whiteboardManager.getDocument(data.documentId, data.userId);
+  const currentVersion = whiteboardManager.getVersion(data.documentId);
+
+  // Send document snapshot
+  roomManager.send(ws, {
+    type: "document.snapshot",
+    document,
+  });
+
+  console.log(`User ${data.userId} joined document ${data.documentId} at version ${data.lastKnownVersion}, current version: ${currentVersion}`);
+}
+
+function handleOperation(ws: WebSocket, data: { operation: OperationEnvelope }) {
+  try {
+    const envelope = data.operation;
+
+    // Apply operation on server and get versioned operation
+    const serverOp = whiteboardManager.applyOperation(
+      envelope.documentId,
+      envelope
+    );
+
+    if (!serverOp) {
+      respondError(ws, "Failed to apply operation.", "operation_failed");
+      return;
+    }
+
+    // Broadcast versioned operation to all clients in document room
+    // For now, broadcast to all connections (in production, track document rooms)
+    // Use documentId as room key
+    const roomKey = `document:${envelope.documentId}`;
+    const room = roomsByDocument.get(roomKey) || new Set();
+    roomsByDocument.set(roomKey, room);
+
+    // Broadcast to all clients in this document room
+    for (const clientWs of room) {
+      if (clientWs.readyState === clientWs.OPEN) {
+        clientWs.send(
+          JSON.stringify({
+            type: "operation",
+            operation: serverOp,
+          })
+        );
+      }
+    }
+
+    console.log(`Operation ${serverOp.operationId} applied to document ${envelope.documentId} at version ${serverOp.serverVersion}`);
+  } catch (error) {
+    console.error("Error handling operation:", error);
+    respondError(ws, "Invalid operation.", "invalid_operation");
+  }
+}
+
+// Track which clients are in which document rooms
+const roomsByDocument = new Map<string, Set<WebSocket>>();
+
 wss.on("connection", (ws) => {
   ws.on("message", (raw) => {
     let input: any;
@@ -446,8 +511,25 @@ wss.on("connection", (ws) => {
     }
 
     if(input?.type === "data:paper"){
-      console.log("Received paper data:", input);
       handlePaperData(ws, input);
+      return;
+    }
+    
+    console.log("ABCD----Received paper data:", input);
+    if(input?.type === "document.join") {
+      handleDocumentJoin(ws, {
+        documentId: input.documentId,
+        userId: input.userId,
+        lastKnownVersion: input.lastKnownVersion,
+      });
+      return;
+    }
+
+    if(input?.type === "operation") {
+      console.log("ABCD-Received operation:", input.operation);
+      handleOperation(ws, {
+        operation: input.operation,
+      });
       return;
     }
 

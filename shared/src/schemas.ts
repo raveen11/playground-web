@@ -103,7 +103,6 @@ export const PaperMsg = z.object({
   paperData: z.string(),
 });
 
-
 export const InboundMessage = z.discriminatedUnion("type", [
   CursorMoveMsg,
   CardMoveMsg,
@@ -207,6 +206,7 @@ export const OutboundMessage = z.discriminatedUnion("type", [
   }),
   TypingEvent,
 ]);
+
 export type PaperMsg = z.infer<typeof PaperMsg>;
 export type CursorMoveMsg = z.infer<typeof CursorMoveMsg>;
 export type CardMoveMsg = z.infer<typeof CardMoveMsg>;

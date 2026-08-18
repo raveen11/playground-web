@@ -2,13 +2,13 @@
   "name": "multiplayer-kanban",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r --parallel --filter @kanban/web --filter @kanban/ws-server run dev",
-    "dev:web": "pnpm --filter @kanban/web dev",
-    "dev:ws": "pnpm --filter @kanban/ws-server dev",
-    "build": "pnpm -r run build",
-    "db:generate": "pnpm --filter @kanban/web db:generate",
-    "db:migrate": "pnpm --filter @kanban/web db:migrate",
-    "db:push": "pnpm --filter @kanban/web db:push"
+    "postinstall": "pnpm --dir ./shared build",
+    "dev": "pnpm --parallel --dir ./frontend --dir ./server run dev",
+    "dev:frontend": "pnpm --dir ./frontend dev",
+    "dev:server": "pnpm --dir ./server dev",
+    "build": "pnpm --dir ./shared build && pnpm --dir ./frontend build && pnpm --dir ./server build",
+    "build:frontend": "pnpm --dir ./frontend build",
+    "build:server": "pnpm --dir ./server build"
   },
   "engines": {
     "node": ">=20"

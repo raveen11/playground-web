@@ -60,7 +60,7 @@ In short, this app is a place where learning and experimentation are the main go
 
 This monorepo is organized in a simple and flexible way:
 
-### apps/web
+### frontend
 The frontend application built with Next.js and React.
 
 Responsibilities:
@@ -71,7 +71,7 @@ Responsibilities:
 - handle drag and drop interactions
 - render live chat and presence data
 
-### apps/ws-server
+### server
 The realtime backend built with Node.js and WebSockets.
 
 Responsibilities:
@@ -82,7 +82,7 @@ Responsibilities:
 - broadcast board updates to all users in the room
 - share chat and typing events in real time
 
-### packages/shared
+### shared
 Shared TypeScript definitions and validation schemas.
 
 Responsibilities:
@@ -109,17 +109,16 @@ Responsibilities:
 
 ```text
 multiplayer-kanban/
-├── apps/
-│   ├── web/
-│   │   ├── src/
-│   │   └── package.json
-│   └── ws-server/
-│       ├── src/
-│       └── package.json
-├── packages/
-│   └── shared/
-│       ├── src/
-│       └── package.json
+├── frontend/
+│   ├── src/
+│   ├── package.json
+│   └── next.config.ts
+├── server/
+│   ├── src/
+│   └── package.json
+├── shared/
+│   ├── src/
+│   └── package.json
 ├── package.json
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
@@ -153,8 +152,8 @@ This starts the web application and the realtime WebSocket server together.
 ### Run separately
 
 ```bash
-pnpm dev:web
-pnpm dev:ws
+pnpm dev:frontend
+pnpm dev:server
 ```
 
 ---
