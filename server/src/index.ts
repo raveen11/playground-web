@@ -25,6 +25,9 @@ import type {
   WhiteboardDocument,
 } from "@kanban/shared";
 
+import "dotenv/config";
+import { pool } from "./config/database.js";
+
 const PORT = Number(process.env.PORT ?? 3001);
 const server = http.createServer((req, res) => {
   if (req.method === "GET" && req.url === "/health") {
@@ -596,6 +599,17 @@ setInterval(() => {
   roomManager.pruneStale(20_000);
 }, 10_000);
 
-server.listen(PORT, () => {
-  console.log(`WebSocket server listening on http://localhost:${PORT}`);
-});
+async function startServer() {
+  try {
+    // await pool.query("SELECT NOW()");
+    // console.log("PostgreSQL connected");
+    server.listen(PORT, () => {
+      console.log(`WebSocket server running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to connect to PostgreSQL:", error);
+    // clearInterval(cleanupInterval);
+    // process.exit(1);
+  }
+}
+startServer();
