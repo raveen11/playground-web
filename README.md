@@ -160,8 +160,8 @@ pnpm dev:server
 
 ## Local URLs
 
-- Web app: http://localhost:3000
-- WebSocket server: http://localhost:3001
+- Web app: http://localhost:3003
+- WebSocket server: http://localhost:3002
 
 ---
 
