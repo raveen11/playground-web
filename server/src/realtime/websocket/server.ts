@@ -1,6 +1,6 @@
 import { WebSocketServer, type WebSocket } from "ws";
-import { RoomManager } from "./rooms.js";
-import { WhiteboardManager } from "./whiteboard/manager.js";
+import { RoomManager } from "../board/room-manager.js";
+import { WhiteboardManager } from "../whiteboard/whiteboard-manager.js";
 
 import {
   InboundMessage,

@@ -1,5 +1,3 @@
-// src/services/embeddings.ts
-
 import ollama from "ollama";
 
 const EMBEDDING_MODEL = "nomic-embed-text";
