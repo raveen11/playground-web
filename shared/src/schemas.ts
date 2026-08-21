@@ -103,6 +103,37 @@ export const PaperMsg = z.object({
   paperData: z.string(),
 });
 
+const PositionSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
+const SizeSchema = z.object({ width: z.number().positive(), height: z.number().positive() });
+const ElementStyleSchema = z.object({
+  fillColor: z.string().optional(), strokeColor: z.string().optional(), strokeWidth: z.number().positive().optional(),
+  fontSize: z.number().positive().optional(), color: z.string().optional(), bold: z.boolean().optional(),
+  italic: z.boolean().optional(), underline: z.boolean().optional(), bullet: z.boolean().optional(),
+});
+const WhiteboardElementSchema = z.object({
+  id: z.string().min(1), type: z.enum(["rectangle", "circle", "text", "line", "drawing"]), position: PositionSchema,
+  size: SizeSchema.optional(), rotation: z.number().finite().optional(), content: z.string().optional(),
+  createdBy: z.string().min(1), createdAt: z.number().int().nonnegative(), updatedAt: z.number().int().nonnegative(),
+  updatedBy: z.string().min(1), style: ElementStyleSchema.optional(),
+});
+const WhiteboardOperationSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("element.create"), element: WhiteboardElementSchema }),
+  z.object({ type: z.literal("element.update"), elementId: z.string().min(1), changes: z.object({ position: PositionSchema.optional(), size: SizeSchema.optional(), rotation: z.number().finite().optional(), content: z.string().optional(), updatedAt: z.number().int().nonnegative().optional(), updatedBy: z.string().min(1).optional(), style: ElementStyleSchema.optional() }) }),
+  z.object({ type: z.literal("element.move"), elementId: z.string().min(1), position: PositionSchema }),
+  z.object({ type: z.literal("element.resize"), elementId: z.string().min(1), size: SizeSchema }),
+  z.object({ type: z.literal("element.rotate"), elementId: z.string().min(1), rotation: z.number().finite() }),
+  z.object({ type: z.literal("element.delete"), elementId: z.string().min(1) }),
+  z.object({ type: z.literal("text.update"), elementId: z.string().min(1), content: z.string() }),
+  z.object({ type: z.literal("style.update"), elementId: z.string().min(1), style: ElementStyleSchema }),
+]);
+
+export const WhiteboardJoinMsg = z.object({ type: z.literal("whiteboard:join"), whiteboardId: z.string().min(1), userId: z.string().min(1), lastVersion: z.number().int().nonnegative() });
+export const WhiteboardLeaveMsg = z.object({ type: z.literal("whiteboard:leave"), whiteboardId: z.string().min(1) });
+export const WhiteboardOperationMsg = z.object({
+  type: z.literal("whiteboard:operation"),
+  operation: z.object({ operationId: z.string().min(1), documentId: z.string().min(1), userId: z.string().min(1), version: z.number().int().nonnegative(), timestamp: z.number().int().nonnegative(), operation: WhiteboardOperationSchema }),
+});
+
 export const InboundMessage = z.discriminatedUnion("type", [
   CursorMoveMsg,
   CardMoveMsg,
@@ -229,3 +260,6 @@ export type InboundMessage = z.infer<typeof InboundMessage>;
 export type OutboundMessage = z.infer<typeof OutboundMessage>;
 export type Card = z.infer<typeof CardSchema>;
 export type Column = z.infer<typeof ColumnSchema>;
+export type WhiteboardJoinMsg = z.infer<typeof WhiteboardJoinMsg>;
+export type WhiteboardLeaveMsg = z.infer<typeof WhiteboardLeaveMsg>;
+export type WhiteboardOperationMsg = z.infer<typeof WhiteboardOperationMsg>;

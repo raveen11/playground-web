@@ -3,8 +3,9 @@ import ollama from "ollama";
 import { createEmbeddings } from "../../infrastructure/ai/embeddings.service.js";
 import type { PoolClient } from "pg";
 import pool from "../../infrastructure/database/postgres.js";
+import { openai } from "../../infrastructure/models/openai.client.js";
 
-const LLM_MODEL = "llama3.2";
+const LLM_MODEL =process.env.OLLAMA_MODEL || "gpt-4o-mini";
 
 export const chatWithDocuments: RequestHandler = async (req, res) => {
   const { question } = req.body;
@@ -29,21 +30,19 @@ export const chatWithDocuments: RequestHandler = async (req, res) => {
       .map((chunk, index) => `[Source ${index + 1}]\n${chunk.content}`)
       .join("\n\n");
 
-    const response = await ollama.chat({
+    const response = await openai.chat.completions.create({
       model: LLM_MODEL,
       messages: [
         {
-          role: "system",
+          role: "user",
           content:
-            "You are a helpful document assistant. Answer using only the provided context. " +
-            'If the answer cannot be found, say: "I don\'t know based on the provided documents." Do not make up information.',
+            `You are a helpful assistant. Use the following context to answer the question.\n\nContext:\n${context}\n\nQuestion: ${question}.If the answer is not contained within the context, say "I don't know."`,
         },
-        { role: "user", content: `Context:\n\n${context}\n\nQuestion:\n\n${question}` },
       ],
     });
 
     res.json({
-      answer: response.message.content,
+      answer: response.choices[0].message.content,
       sources: chunks.map((chunk) => ({
         id: chunk.id,
         documentId: chunk.document_id,

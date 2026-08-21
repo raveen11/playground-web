@@ -78,3 +78,9 @@ export type DocumentSnapshotMsg = {
   type: "document.snapshot";
   document: WhiteboardDocument;
 };
+
+export type WhiteboardSyncMsg = {
+  type: "whiteboard:sync";
+  whiteboardId: string;
+  operations: ServerOperation[];
+};

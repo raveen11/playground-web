@@ -3,16 +3,17 @@
  * Manages operation versioning, validation, and broadcasting
  */
 
-import type { WebSocket } from "ws";
 import type {
   WhiteboardDocument,
   OperationEnvelope,
   ServerOperation,
 } from "@kanban/shared";
+import { applyWhiteboardOperation } from "@kanban/shared";
 
 export class WhiteboardManager {
   private documents = new Map<string, WhiteboardDocument>();
   private versionByDocument = new Map<string, number>();
+  private operationsByDocument = new Map<string, ServerOperation[]>();
 
   /**
    * Get or create a document
@@ -30,6 +31,7 @@ export class WhiteboardManager {
       };
       this.documents.set(documentId, doc);
       this.versionByDocument.set(documentId, 0);
+      this.operationsByDocument.set(documentId, []);
     }
 
     return doc;
@@ -57,6 +59,9 @@ export class WhiteboardManager {
     }
 
     const currentVersion = this.versionByDocument.get(documentId) ?? 0;
+    const duplicate = this.operationsByDocument.get(documentId)?.find((operation) => operation.operationId === envelope.operationId);
+    if (duplicate) return duplicate;
+
     const serverVersion = currentVersion + 1;
 
     // Create server operation with assigned version
@@ -65,13 +70,11 @@ export class WhiteboardManager {
       serverVersion,
     };
 
-    // Update document version
+    const nextDocument = applyWhiteboardOperation(doc, envelope);
+    nextDocument.version = serverVersion;
+    this.documents.set(documentId, nextDocument);
     this.versionByDocument.set(documentId, serverVersion);
-
-    // In production, would apply operation to document here
-    // For now, just track version
-    // doc = applyOperation(doc, envelope);
-    // this.documents.set(documentId, doc);
+    this.operationsByDocument.set(documentId, [...(this.operationsByDocument.get(documentId) ?? []), serverOp]);
 
     return serverOp;
   }
@@ -82,9 +85,7 @@ export class WhiteboardManager {
   getOperationsSince(
     documentId: string,
     fromVersion: number
-  ): OperationEnvelope[] {
-    // In production, store operation history and return missing operations
-    // For now, return empty (client should request full snapshot)
-    return [];
+  ): ServerOperation[] {
+    return (this.operationsByDocument.get(documentId) ?? []).filter((operation) => operation.serverVersion > fromVersion);
   }
 }

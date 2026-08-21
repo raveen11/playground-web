@@ -5,6 +5,9 @@ import { WhiteboardManager } from "../whiteboard/whiteboard-manager.js";
 import {
   InboundMessage,
   RoleSchema,
+  WhiteboardJoinMsg,
+  WhiteboardLeaveMsg,
+  WhiteboardOperationMsg,
 } from "@kanban/shared";
 
 import type {
@@ -22,7 +25,6 @@ import type {
   SyncStateMsg,
   Card,
   Column,
-  OperationEnvelope,
 } from "@kanban/shared";
 
 import "dotenv/config";
@@ -689,43 +691,56 @@ function handleTypingMessage(
 // WHITEBOARD
 // ============================================================================
 
-function handleDocumentJoin(
-  ws: WebSocket,
-  data: {
-    documentId: string;
-    userId: string;
-    lastKnownVersion: number;
-  },
-) {
-  const document =
-    whiteboardManager.getDocument(
-      data.documentId,
-      data.userId,
-    );
-
-  const currentVersion =
-    whiteboardManager.getVersion(
-      data.documentId,
-    );
-
-  roomManager.send(ws, {
-    type: "document.snapshot",
-    document,
-  });
-
-  console.log(
-    `User ${data.userId} joined document ${data.documentId} at version ${data.lastKnownVersion}, current version: ${currentVersion}`,
-  );
+function whiteboardRoomKey(whiteboardId: string) {
+  return `whiteboard:${whiteboardId}`;
 }
 
-function handleOperation(
+function leaveWhiteboardRoom(ws: WebSocket, whiteboardId?: string) {
+  const membership = whiteboardsBySocket.get(ws);
+  const target = whiteboardId ?? membership?.whiteboardId;
+  if (!target) return;
+  const room = roomsByDocument.get(whiteboardRoomKey(target));
+  room?.delete(ws);
+  if (room?.size === 0) roomsByDocument.delete(whiteboardRoomKey(target));
+  if (membership?.whiteboardId === target) whiteboardsBySocket.delete(ws);
+}
+
+function handleWhiteboardJoin(ws: WebSocket, data: import("@kanban/shared").WhiteboardJoinMsg) {
+  leaveWhiteboardRoom(ws);
+  const roomKey = whiteboardRoomKey(data.whiteboardId);
+  const room = roomsByDocument.get(roomKey) ?? new Set<WebSocket>();
+  room.add(ws);
+  roomsByDocument.set(roomKey, room);
+  whiteboardsBySocket.set(ws, { whiteboardId: data.whiteboardId, userId: data.userId });
+
+  const document = whiteboardManager.getDocument(data.whiteboardId, data.userId);
+  const currentVersion = whiteboardManager.getVersion(data.whiteboardId);
+  if (data.lastVersion === 0 || data.lastVersion > currentVersion) {
+    roomManager.send(ws, { type: "document.snapshot", document });
+    return;
+  }
+  roomManager.send(ws, {
+    type: "whiteboard:sync",
+    whiteboardId: data.whiteboardId,
+    operations: whiteboardManager.getOperationsSince(data.whiteboardId, data.lastVersion),
+  });
+}
+
+function handleWhiteboardOperation(
   ws: WebSocket,
-  data: {
-    operation: OperationEnvelope;
-  },
+  data: import("@kanban/shared").WhiteboardOperationMsg,
 ) {
   try {
     const envelope = data.operation;
+    const membership = whiteboardsBySocket.get(ws);
+    if (!membership || membership.whiteboardId !== envelope.documentId) {
+      respondError(ws, "Join the whiteboard before sending operations.", "whiteboard_not_joined");
+      return;
+    }
+    if (membership.userId !== envelope.userId) {
+      respondError(ws, "Operation user does not match the joined user.", "whiteboard_user_mismatch");
+      return;
+    }
 
     const serverOp =
       whiteboardManager.applyOperation(
@@ -742,19 +757,9 @@ function handleOperation(
       return;
     }
 
-    const roomKey =
-      `document:${envelope.documentId}`;
+    const room = roomsByDocument.get(whiteboardRoomKey(envelope.documentId));
 
-    const room =
-      roomsByDocument.get(roomKey) ??
-      new Set<WebSocket>();
-
-    roomsByDocument.set(
-      roomKey,
-      room,
-    );
-
-    for (const clientWs of room) {
+    for (const clientWs of room ?? []) {
       if (
         clientWs.readyState === clientWs.OPEN
       ) {
@@ -790,6 +795,7 @@ function handleOperation(
 
 const roomsByDocument =
   new Map<string, Set<WebSocket>>();
+const whiteboardsBySocket = new Map<WebSocket, { whiteboardId: string; userId: string }>();
 
 // ============================================================================
 // WEBSOCKET CONNECTION
@@ -797,7 +803,7 @@ const roomsByDocument =
 
 wss.on("connection", (ws) => {
   ws.on("message", (raw) => {
-    let input: any;
+    let input: unknown;
 
     try {
       input = JSON.parse(raw.toString());
@@ -811,9 +817,18 @@ wss.on("connection", (ws) => {
     }
 
     const messageType =
-      typeof input?.type === "string"
+      typeof input === "object" && input !== null && "type" in input && typeof input.type === "string"
         ? input.type
         : null;
+    const legacyInput = input as {
+      boardId: string;
+      userId: string;
+      name: string;
+      text: string;
+      sentAt: string;
+      isTyping: boolean;
+      paperData: string;
+    };
 
     // --------------------------------------------------
     // Chat
@@ -821,11 +836,11 @@ wss.on("connection", (ws) => {
 
     if (messageType === "chat:message") {
       handleChatMessage(ws, {
-        boardId: input.boardId,
-        userId: input.userId,
-        name: input.name,
-        text: input.text,
-        sentAt: input.sentAt,
+        boardId: legacyInput.boardId,
+        userId: legacyInput.userId,
+        name: legacyInput.name,
+        text: legacyInput.text,
+        sentAt: legacyInput.sentAt,
       });
 
       return;
@@ -833,10 +848,10 @@ wss.on("connection", (ws) => {
 
     if (messageType === "chat:typing") {
       handleTypingMessage(ws, {
-        boardId: input.boardId,
-        userId: input.userId,
-        name: input.name,
-        isTyping: Boolean(input.isTyping),
+        boardId: legacyInput.boardId,
+        userId: legacyInput.userId,
+        name: legacyInput.name,
+        isTyping: Boolean(legacyInput.isTyping),
       });
 
       return;
@@ -847,7 +862,7 @@ wss.on("connection", (ws) => {
     // --------------------------------------------------
 
     if (messageType === "data:paper") {
-      handlePaperData(ws, input);
+      handlePaperData(ws, legacyInput);
       return;
     }
 
@@ -855,22 +870,33 @@ wss.on("connection", (ws) => {
     // Whiteboard
     // --------------------------------------------------
 
-    if (messageType === "document.join") {
-      handleDocumentJoin(ws, {
-        documentId: input.documentId,
-        userId: input.userId,
-        lastKnownVersion:
-          input.lastKnownVersion,
-      });
-
+    if (messageType === "whiteboard:join") {
+      const parsed = WhiteboardJoinMsg.safeParse(input);
+      if (!parsed.success) {
+        respondError(ws, "Invalid whiteboard join message.", "invalid_whiteboard_join");
+        return;
+      }
+      handleWhiteboardJoin(ws, parsed.data);
       return;
     }
 
-    if (messageType === "operation") {
-      handleOperation(ws, {
-        operation: input.operation,
-      });
+    if (messageType === "whiteboard:leave") {
+      const parsed = WhiteboardLeaveMsg.safeParse(input);
+      if (!parsed.success) {
+        respondError(ws, "Invalid whiteboard leave message.", "invalid_whiteboard_leave");
+        return;
+      }
+      leaveWhiteboardRoom(ws, parsed.data.whiteboardId);
+      return;
+    }
 
+    if (messageType === "whiteboard:operation") {
+      const parsed = WhiteboardOperationMsg.safeParse(input);
+      if (!parsed.success) {
+        respondError(ws, "Invalid whiteboard operation.", "invalid_whiteboard_operation");
+        return;
+      }
+      handleWhiteboardOperation(ws, parsed.data);
       return;
     }
 
@@ -947,6 +973,7 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
+    leaveWhiteboardRoom(ws);
     const client = getClientForSocket(ws);
 
     if (!client) return;
