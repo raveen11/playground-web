@@ -278,7 +278,8 @@ function CodeCanvasInner({ documentId, userId, userName, wsUrl }: CodeCanvasProp
 
   /**
    * Turn a palette drop into a shared code element at the drop point.
-   */
+  fdsfadffadsfs
+  */
   const handleDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
