@@ -38,7 +38,7 @@ type ChatPageProps = {
   documents?: DocumentRef[];
 };
 
-const CHAT_ENDPOINT = "http://localhost:3001/api/chat";
+const CHAT_ENDPOINT = "https://playground-web-i74t.onrender.com/api/chat";
 
 const EYEBROW =
   "font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-soft";

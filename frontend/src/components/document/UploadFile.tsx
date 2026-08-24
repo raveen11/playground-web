@@ -22,7 +22,7 @@ export default function UploadFile() {
       setMessage("");
 
       const response = await fetch(
-        "http://localhost:3001/api/documents",
+        "https://playground-web-i74t.onrender.com/api/documents",
         {
           method: "POST",
           body: formData,

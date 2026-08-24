@@ -22,7 +22,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     async function fetchDocuments() {
       try {
-        const response = await fetch("http://localhost:3001/api/documents");
+        const response = await fetch("https://playground-web-i74t.onrender.com/api/documents");
 
         if (!response.ok) {
           throw new Error("Failed to fetch documents");
