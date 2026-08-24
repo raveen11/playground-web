@@ -72,7 +72,7 @@ type SocketMessage = {
 };
 
 const BOARD_ID = "main-board";
-const WS_PORT = "https://playground-web-i74t.onrender.com/";
+const WS_PORT = 3002;
 
 const ROLES: Role[] = ["viewer", "editor", "admin"];
 
