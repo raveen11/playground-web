@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { API_BASE_URL } from "@/lib/config";
+
 export default function UploadFile() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -22,7 +24,7 @@ export default function UploadFile() {
       setMessage("");
 
       const response = await fetch(
-        "https://playground-web-i74t.onrender.com/api/documents",
+        `${API_BASE_URL}/documents`,
         {
           method: "POST",
           body: formData,

@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEffect, useState } from "react";
 import ChatPage from "@/components/document/ChatPage";
+import { API_BASE_URL } from "@/lib/config";
 
 type Document = {
   id: number;
@@ -22,7 +23,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     async function fetchDocuments() {
       try {
-        const response = await fetch("https://playground-web-i74t.onrender.com/api/documents");
+        const response = await fetch(`${API_BASE_URL}/documents`);
 
         if (!response.ok) {
           throw new Error("Failed to fetch documents");

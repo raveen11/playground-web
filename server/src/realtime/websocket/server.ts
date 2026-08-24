@@ -1,6 +1,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import { RoomManager } from "../board/room-manager.js";
 import { WhiteboardManager } from "../whiteboard/whiteboard-manager.js";
+import { httpServer } from "../../infrastructure/http/server.js";
 
 import {
   InboundMessage,
@@ -29,13 +30,18 @@ import type {
 
 import "dotenv/config";
 
-const WS_PORT = Number(process.env.WS_PORT ?? 3002);
+// Hosting platforms (Render, Railway, Fly, Heroku…) route public traffic to a
+// single port — the one bound to `process.env.PORT`. A `WebSocketServer` with
+// its own `port` would open a second listener that is unreachable from the
+// internet, so we run in `noServer` mode and handle the HTTP upgrade on the
+// existing server instead. One port serves both `/api/*` and WebSockets.
+export const wss = new WebSocketServer({ noServer: true });
 
-export const wss = new WebSocketServer({
-  port: WS_PORT,
+httpServer.on("upgrade", (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit("connection", ws, request);
+  });
 });
-
-console.log(`WebSocket server running on ws://localhost:${WS_PORT}`);
 
 const roomManager = new RoomManager();
 const whiteboardManager = new WhiteboardManager();

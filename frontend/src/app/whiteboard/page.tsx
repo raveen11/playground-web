@@ -7,8 +7,10 @@
  * for synchronisation.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+
+import { WS_URL } from "@/lib/config";
 
 // Monaco and React Flow are browser-only, so the canvas never renders on the server.//this is test
 const CodeCanvas = dynamic(
@@ -25,15 +27,6 @@ const CodeCanvas = dynamic(
 
 const USER_ID_STORAGE_KEY = "codeCanvasUserId";
 const DEFAULT_DOCUMENT_ID = "default-canvas";
-const DEFAULT_WS_PORT = "3002";
-
-function resolveWsUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_WS_URL;
-  if (configured) return configured;
-
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${protocol}://${window.location.hostname}:${DEFAULT_WS_PORT}`;
-}
 
 export default function WhiteboardPage() {
   const [mounted, setMounted] = useState(false);
@@ -57,7 +50,8 @@ export default function WhiteboardPage() {
     localStorage.setItem(USER_ID_STORAGE_KEY, generated);
   }, []);
 
-  const wsUrl = useMemo(() => (mounted ? resolveWsUrl() : ""), [mounted]);
+  // WS_URL is a build-time constant, so it is safe during SSR — no window access.
+  const wsUrl = WS_URL;
 
   const handleJoin = () => {
     const name = userNameInput.trim();

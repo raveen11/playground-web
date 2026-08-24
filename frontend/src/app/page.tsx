@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { WS_URL } from "@/lib/config";
 
 type Role = "viewer" | "editor" | "admin";
 
@@ -72,7 +74,6 @@ type SocketMessage = {
 };
 
 const BOARD_ID = "main-board";
-const WS_PORT = 3002;
 
 const ROLES: Role[] = ["viewer", "editor", "admin"];
 
@@ -163,14 +164,7 @@ export default function Home() {
   const typingTimeoutRef = useRef<number | null>(null);
   const [typeData, setTypeData] = useState("");
 
-  const boardUrl = useMemo(() => {
-    if (typeof window === "undefined") {
-      return `ws://playgroundweb.vercel.app:${WS_PORT}`;
-    }
-
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${protocol}://playgroundweb.vercel.app:${WS_PORT}`;
-  }, []);
+  const boardUrl = WS_URL;
 
   useEffect(() => {
     loadSavedUser().then((saved) => {

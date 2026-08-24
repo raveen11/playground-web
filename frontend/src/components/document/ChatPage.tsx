@@ -13,6 +13,8 @@ import {
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { API_BASE_URL } from "@/lib/config";
+
 type Source = {
   id: number | string;
   documentId?: number;
@@ -38,7 +40,7 @@ type ChatPageProps = {
   documents?: DocumentRef[];
 };
 
-const CHAT_ENDPOINT = "https://playground-web-i74t.onrender.com/api/chat";
+const CHAT_ENDPOINT = `${API_BASE_URL}/chat`;
 
 const EYEBROW =
   "font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-soft";
