@@ -169,7 +169,7 @@ export default function Home() {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${protocol}://${window.location.hostname}:${WS_PORT}`;
+    return `${protocol}://playgroundweb.vercel.app:${WS_PORT}`;
   }, []);
 
   useEffect(() => {
