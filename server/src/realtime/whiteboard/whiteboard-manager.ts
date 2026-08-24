@@ -10,6 +10,14 @@ import type {
 } from "@kanban/shared";
 import { applyWhiteboardOperation } from "@kanban/shared";
 
+/**
+ * Upper bound on the replay log per document.
+ * Collaborative code typing emits far more operations than shape editing, so the
+ * log is trimmed and reconnecting clients that fall outside the window get a
+ * fresh snapshot instead of an incomplete replay.
+ */
+const MAX_RETAINED_OPERATIONS = 2_000;
+
 export class WhiteboardManager {
   private documents = new Map<string, WhiteboardDocument>();
   private versionByDocument = new Map<string, number>();
@@ -74,7 +82,10 @@ export class WhiteboardManager {
     nextDocument.version = serverVersion;
     this.documents.set(documentId, nextDocument);
     this.versionByDocument.set(documentId, serverVersion);
-    this.operationsByDocument.set(documentId, [...(this.operationsByDocument.get(documentId) ?? []), serverOp]);
+    this.operationsByDocument.set(
+      documentId,
+      [...(this.operationsByDocument.get(documentId) ?? []), serverOp].slice(-MAX_RETAINED_OPERATIONS),
+    );
 
     return serverOp;
   }
@@ -87,5 +98,16 @@ export class WhiteboardManager {
     fromVersion: number
   ): ServerOperation[] {
     return (this.operationsByDocument.get(documentId) ?? []).filter((operation) => operation.serverVersion > fromVersion);
+  }
+
+  /**
+   * Whether the retained log can still replay every operation after `fromVersion`.
+   * When it cannot, the caller must send a full snapshot instead.
+   */
+  canReplayFrom(documentId: string, fromVersion: number): boolean {
+    const operations = this.operationsByDocument.get(documentId) ?? [];
+    const oldest = operations[0];
+    if (!oldest) return fromVersion === this.getVersion(documentId);
+    return oldest.serverVersion <= fromVersion + 1;
   }
 }

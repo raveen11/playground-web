@@ -19,7 +19,7 @@ export function applyWhiteboardOperation(document: WhiteboardDocument, envelope:
       if (!document.elements.some((element) => element.id === operation.elementId)) throw new Error(`Element "${operation.elementId}" was not found.`);
       return { ...document, elements: document.elements.filter((element) => element.id !== operation.elementId) };
     case "text.update": return update(operation.elementId, (element) => {
-      if (element.type !== "text") throw new Error(`Element "${operation.elementId}" is not text.`);
+      if (element.type !== "text" && element.type !== "code") throw new Error(`Element "${operation.elementId}" does not hold text.`);
       return { ...element, content: operation.content };
     });
     case "style.update": return update(operation.elementId, (element) => ({ ...element, style: { ...element.style, ...operation.style } }));

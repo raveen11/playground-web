@@ -715,7 +715,11 @@ function handleWhiteboardJoin(ws: WebSocket, data: import("@kanban/shared").Whit
 
   const document = whiteboardManager.getDocument(data.whiteboardId, data.userId);
   const currentVersion = whiteboardManager.getVersion(data.whiteboardId);
-  if (data.lastVersion === 0 || data.lastVersion > currentVersion) {
+  if (
+    data.lastVersion === 0 ||
+    data.lastVersion > currentVersion ||
+    !whiteboardManager.canReplayFrom(data.whiteboardId, data.lastVersion)
+  ) {
     roomManager.send(ws, { type: "document.snapshot", document });
     return;
   }

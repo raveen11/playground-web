@@ -20,13 +20,26 @@ export type ElementStyle = {
   bullet?: boolean;
 };
 
+export type CodeLanguage =
+  | "typescript"
+  | "javascript"
+  | "python"
+  | "json"
+  | "sql"
+  | "markdown"
+  | "html"
+  | "css";
+
 export type WhiteboardElement = {
   id: string;
-  type: "rectangle" | "circle" | "text" | "line" | "drawing";
+  type: "rectangle" | "circle" | "text" | "line" | "drawing" | "code";
   position: Position;
   size?: Size;
   rotation?: number;
   content?: string;
+  /** Monaco language id. Only meaningful for "code" elements. */
+  language?: CodeLanguage;
+  title?: string;
   createdBy: string;
   createdAt: number;
   updatedAt: number;

@@ -110,15 +110,17 @@ const ElementStyleSchema = z.object({
   fontSize: z.number().positive().optional(), color: z.string().optional(), bold: z.boolean().optional(),
   italic: z.boolean().optional(), underline: z.boolean().optional(), bullet: z.boolean().optional(),
 });
+const CodeLanguageSchema = z.enum(["typescript", "javascript", "python", "json", "sql", "markdown", "html", "css"]);
 const WhiteboardElementSchema = z.object({
-  id: z.string().min(1), type: z.enum(["rectangle", "circle", "text", "line", "drawing"]), position: PositionSchema,
+  id: z.string().min(1), type: z.enum(["rectangle", "circle", "text", "line", "drawing", "code"]), position: PositionSchema,
   size: SizeSchema.optional(), rotation: z.number().finite().optional(), content: z.string().optional(),
+  language: CodeLanguageSchema.optional(), title: z.string().max(120).optional(),
   createdBy: z.string().min(1), createdAt: z.number().int().nonnegative(), updatedAt: z.number().int().nonnegative(),
   updatedBy: z.string().min(1), style: ElementStyleSchema.optional(),
 });
 const WhiteboardOperationSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("element.create"), element: WhiteboardElementSchema }),
-  z.object({ type: z.literal("element.update"), elementId: z.string().min(1), changes: z.object({ position: PositionSchema.optional(), size: SizeSchema.optional(), rotation: z.number().finite().optional(), content: z.string().optional(), updatedAt: z.number().int().nonnegative().optional(), updatedBy: z.string().min(1).optional(), style: ElementStyleSchema.optional() }) }),
+  z.object({ type: z.literal("element.update"), elementId: z.string().min(1), changes: z.object({ position: PositionSchema.optional(), size: SizeSchema.optional(), rotation: z.number().finite().optional(), content: z.string().optional(), language: CodeLanguageSchema.optional(), title: z.string().max(120).optional(), updatedAt: z.number().int().nonnegative().optional(), updatedBy: z.string().min(1).optional(), style: ElementStyleSchema.optional() }) }),
   z.object({ type: z.literal("element.move"), elementId: z.string().min(1), position: PositionSchema }),
   z.object({ type: z.literal("element.resize"), elementId: z.string().min(1), size: SizeSchema }),
   z.object({ type: z.literal("element.rotate"), elementId: z.string().min(1), rotation: z.number().finite() }),
