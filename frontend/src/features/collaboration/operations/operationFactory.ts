@@ -7,6 +7,7 @@ import type {
   Operation,
   OperationEnvelope,
   WhiteboardElement,
+  CodeLanguage,
   Position,
   Size,
   ElementStyle,
@@ -149,4 +150,35 @@ export function createUpdateOperation(
     elementId,
     changes,
   });
+}
+
+/**
+ * Build a code editor element.
+ * Kept next to the other factories so canvas code never hand-rolls elements.
+ */
+export function createCodeElement(
+  userId: string,
+  options: {
+    position: Position;
+    language: CodeLanguage;
+    title: string;
+    content: string;
+    size?: Size;
+  }
+): WhiteboardElement {
+  const now = Date.now();
+
+  return {
+    id: `code-${crypto.randomUUID()}`,
+    type: "code",
+    position: options.position,
+    size: options.size ?? { width: 460, height: 300 },
+    language: options.language,
+    title: options.title,
+    content: options.content,
+    createdBy: userId,
+    createdAt: now,
+    updatedAt: now,
+    updatedBy: userId,
+  };
 }
