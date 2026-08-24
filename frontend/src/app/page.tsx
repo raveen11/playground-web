@@ -165,7 +165,7 @@ export default function Home() {
 
   const boardUrl = useMemo(() => {
     if (typeof window === "undefined") {
-      return `ws://localhost:${WS_PORT}`;
+      return `ws://playgroundweb.vercel.app:${WS_PORT}`;
     }
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
