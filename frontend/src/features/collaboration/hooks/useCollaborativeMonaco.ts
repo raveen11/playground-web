@@ -15,13 +15,17 @@
  *  - inbound content is applied as a minimal edit, so a remote keystroke does
  *    not move the local caret or drop the local selection
  *  - operations the local user authored are never re-applied (no echo loop)
+ *  - `handleRun` reads the editor's current content, compiles/runs it, and
+ *    exposes the result (or error) via `runResult`
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { editor } from "monaco-editor";
+import type { Monaco } from "@monaco-editor/react";
 import { createTextUpdateOperation } from "../operations/operationFactory";
 import { diffText } from "../text/textDiff";
 import { useCollabSession } from "../canvas/CollabSessionContext";
+import { runJavaScript, type RunResult } from "../execution/runJavaScript";
 
 /** Outbound throttle. Low enough to feel live, high enough to batch a burst. */
 const SYNC_INTERVAL_MS = 120;
@@ -29,21 +33,48 @@ const SYNC_INTERVAL_MS = 120;
 /** How long the "someone else is editing" hint stays visible. */
 const REMOTE_ACTIVITY_MS = 1_500;
 
+export type { RunResult } from "../execution/runJavaScript";
+
 export interface UseCollaborativeMonaco {
   /** Pass to `<Editor onMount={...} />`. */
-  handleEditorMount: (instance: editor.IStandaloneCodeEditor) => void;
+  handleEditorMount: (instance: editor.IStandaloneCodeEditor, monacoInstance?: Monaco) => void;
   /** Pass to `<Editor onChange={...} />`. */
   handleEditorChange: (value: string | undefined) => void;
   /** Sends any throttled-but-unsent content immediately. */
   flush: () => void;
   /** True while another user's edits are landing in this editor. */
   isRemoteEditing: boolean;
+  /** Compiles (TS) and runs the current editor content in a sandboxed worker. */
+  handleRun: () => Promise<RunResult>;
+  /** True while a run is in flight. */
+  isRunning: boolean;
+  /** Output of the most recent run, or null before the first run / after clear. */
+  runResult: RunResult | null;
+  /** Empties the terminal. */
+  clearRun: () => void;
+}
+
+/**
+ * Strip TypeScript down to runnable JavaScript using the editor's own TS
+ * compiler worker — no extra dependency, same types the editor already checks.
+ */
+async function transpileTypeScript(
+  monaco: Monaco,
+  model: editor.ITextModel
+): Promise<string> {
+  const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
+  const client = await getWorker(model.uri);
+  const output = await client.getEmitOutput(model.uri.toString());
+  const emitted = output.outputFiles.find((file:any) => file.name.endsWith(".js"));
+  return emitted?.text ?? model.getValue();
 }
 
 export function useCollaborativeMonaco(elementId: string): UseCollaborativeMonaco {
   const session = useCollabSession();
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  /** The Monaco namespace, captured on mount so we can reach its TS compiler. */
+  const monacoRef = useRef<Monaco | null>(null);
   /** Set while a remote edit is being written into the model. */
   const isApplyingRemoteRef = useRef(false);
   /** Latest local content not yet sent, or null when nothing is queued. */
@@ -54,6 +85,8 @@ export function useCollaborativeMonaco(elementId: string): UseCollaborativeMonac
   const remoteActivityTimerRef = useRef<number | null>(null);
 
   const [isRemoteEditing, setIsRemoteEditing] = useState(false);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
 
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -98,10 +131,56 @@ export function useCollaborativeMonaco(elementId: string): UseCollaborativeMonac
       if (value === undefined) return;
 
       pendingContentRef.current = value;
+
       scheduleFlush();
     },
     [scheduleFlush]
   );
+
+  const handleRun = useCallback(async (): Promise<RunResult> => {
+    const model = editorRef.current?.getModel();
+    const language = sessionRef.current.getElement(elementId)?.language ?? "javascript";
+    const runnable = language === "javascript" || language === "typescript";
+
+    if (!model || !runnable) {
+      const result: RunResult = {
+        lines: [
+          {
+            level: "system",
+            text: `Run is available for JavaScript and TypeScript only (this block is ${language}).`,
+          },
+        ],
+        status: "ok",
+        durationMs: 0,
+      };
+      setRunResult(result);
+      return result;
+    }
+
+    setIsRunning(true);
+    try {
+      let code = model.getValue();
+
+      // TypeScript can't run as-is; hand it to the editor's compiler first. If
+      // that fails for any reason, run the raw source so a genuine syntax error
+      // shows up in the terminal rather than being hidden here.
+      if (language === "typescript" && monacoRef.current) {
+        try {
+          code = await transpileTypeScript(monacoRef.current, model);
+        } catch {
+          /* fall back to the raw source */
+        }
+      }
+
+      const result = await runJavaScript(code);
+      setRunResult(result);
+      return result;
+    } finally {
+      setIsRunning(false);
+    }
+  }, [elementId]);
+
+  const clearRun = useCallback(() => setRunResult(null), []);
 
   /**
    * Write incoming content into the model as the single edit that changed,
@@ -157,8 +236,22 @@ export function useCollaborativeMonaco(elementId: string): UseCollaborativeMonac
   }, []);
 
   const handleEditorMount = useCallback(
-    (instance: editor.IStandaloneCodeEditor) => {
+    (instance: editor.IStandaloneCodeEditor, monacoInstance?: Monaco) => {
       editorRef.current = instance;
+
+      if (monacoInstance) {
+        monacoRef.current = monacoInstance;
+
+        // Emit modern JS when transpiling TS, so `export`, template literals and
+        // async syntax survive intact for the module worker.
+        const ts = monacoInstance.languages.typescript;
+        ts.typescriptDefaults.setCompilerOptions({
+          ...ts.typescriptDefaults.getCompilerOptions(),
+          target: ts.ScriptTarget.ESNext,
+          module: ts.ModuleKind.ESNext,
+        });
+      }
+
       lastSentContentRef.current = instance.getValue();
 
       // Losing focus is the natural point to make sure nothing is left queued.
@@ -224,5 +317,14 @@ export function useCollaborativeMonaco(elementId: string): UseCollaborativeMonac
     };
   }, [elementId, flush]);
 
-  return { handleEditorMount, handleEditorChange, flush, isRemoteEditing };
+  return {
+    handleEditorMount,
+    handleEditorChange,
+    flush,
+    isRemoteEditing,
+    handleRun,
+    isRunning,
+    runResult,
+    clearRun,
+  };
 }

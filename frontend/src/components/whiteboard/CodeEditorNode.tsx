@@ -9,7 +9,7 @@
  * never re-renders the canvas or resets the local caret.
  */
 
-import { memo, useMemo, useRef } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { NodeResizer, type NodeProps, type Node } from "@xyflow/react";
 import type { CodeLanguage } from "@kanban/shared";
@@ -17,6 +17,7 @@ import { useCollabSession } from "../../features/collaboration/canvas/CollabSess
 import { useCollaborativeMonaco } from "../../features/collaboration/hooks/useCollaborativeMonaco";
 import { createUpdateOperation } from "../../features/collaboration/operations/operationFactory";
 import { CODE_LANGUAGE_OPTIONS } from "./codeLanguages";
+import { CodeTerminal } from "./CodeTerminal";
 
 export const CODE_NODE_TYPE = "codeEditor";
 
@@ -48,8 +49,21 @@ const EDITOR_OPTIONS = {
 
 function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNodeType>) {
   const session = useCollabSession();
-  const { handleEditorMount, handleEditorChange, flush, isRemoteEditing } =
-    useCollaborativeMonaco(id);
+  const {
+    handleEditorMount,
+    handleEditorChange,
+    flush,
+    isRemoteEditing,
+    handleRun,
+    isRunning,
+    runResult,
+    clearRun,
+  } = useCollaborativeMonaco(id);
+
+  // Running is a JS/TS-only affordance — there is no JS compiler for the other
+  // languages the palette offers.
+  const canRun = data.language === "javascript" || data.language === "typescript";
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   // Read once: later content arrives through the operation stream.
   const initialContentRef = useRef<string | null>(null);
@@ -58,6 +72,11 @@ function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNod
   }
 
   const editorPath = useMemo(() => `code-node-${id}`, [id]);
+
+  const handleRunClick = () => {
+    setTerminalOpen(true);
+    void handleRun();
+  };
 
   const handleLanguageChange = (language: CodeLanguage) => {
     // Send any queued keystrokes first so they are not ordered after the
@@ -72,6 +91,8 @@ function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNod
       })
     );
   };
+
+  console.log('ABCD-runResult',runResult)
 
   return (
     <div
@@ -131,6 +152,27 @@ function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNod
               </option>
             ))}
           </select>
+          
+          {canRun && (
+            <button
+              type="button"
+              onClick={handleRunClick}
+              disabled={isRunning}
+              className="nodrag inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-100 focus:border-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRunning ? (
+                <span
+                  className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-slate-400 border-t-transparent motion-reduce:animate-none"
+                  aria-hidden
+                />
+              ) : (
+                <span className="text-[8px] text-emerald-600" aria-hidden>
+                  ▶
+                </span>
+              )}
+              {isRunning ? "Running" : "Run"}
+            </button>
+          )}
 
           <button
             type="button"
@@ -161,6 +203,16 @@ function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNod
           theme="vs"
         />
       </div>
+
+      {canRun && (
+        <CodeTerminal
+          result={runResult}
+          isRunning={isRunning}
+          open={terminalOpen}
+          onToggle={() => setTerminalOpen((previous) => !previous)}
+          onClear={clearRun}
+        />
+      )}
     </div>
   );
 }
