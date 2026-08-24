@@ -8,7 +8,10 @@ export function createApp(): Express {
 
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN ?? "http://localhost:3003",
+      origin: [
+      "http://localhost:3000",
+      "https://playgroundweb.vercel.app",
+    ],
     }),
   );
   app.use(express.json());
