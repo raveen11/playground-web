@@ -11,3 +11,7 @@ dist
 .DS_Store
 data/
 coverage
+
+server/.env
+.env
+.env.*
