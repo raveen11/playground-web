@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 
-// Monaco and React Flow are browser-only, so the canvas never renders on the server.
+// Monaco and React Flow are browser-only, so the canvas never renders on the server.//this is test
 const CodeCanvas = dynamic(
   () => import("../../components/whiteboard/CodeCanvas").then((module) => module.CodeCanvas),
   {
