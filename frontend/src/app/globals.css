@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-literata);
+}
+
+/* Reference-desk tokens: an ink-on-paper surface with one stamped-blue accent.
+   Fixed light tones on purpose — the panel reads as a paper desk in either scheme. */
+@theme {
+  --color-paper: #fbfaf7;
+  --color-slip: #ffffff;
+  --color-ink: #1a1d23;
+  --color-ink-soft: #626878;
+  --color-rule: #e4e2db;
+  --color-stamp: #1f4e8c;
+
+  --animate-slip-in: slip-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes slip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slip-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
