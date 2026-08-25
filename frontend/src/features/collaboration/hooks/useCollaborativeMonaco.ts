@@ -65,7 +65,9 @@ async function transpileTypeScript(
   const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
   const client = await getWorker(model.uri);
   const output = await client.getEmitOutput(model.uri.toString());
-  const emitted = output.outputFiles.find((file:any) => file.name.endsWith(".js"));
+  const emitted = output.outputFiles.find((file) =>
+    file.path.endsWith(".js")
+  );
   return emitted?.text ?? model.getValue();
 }
 
