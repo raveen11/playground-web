@@ -26,7 +26,7 @@ import { createTextUpdateOperation } from "../operations/operationFactory";
 import { diffText } from "../text/textDiff";
 import { useCollabSession } from "../canvas/CollabSessionContext";
 import { runJavaScript, type RunResult } from "../execution/runJavaScript";
-
+import ts from "typescript";
 /** Outbound throttle. Low enough to feel live, high enough to batch a burst. */
 const SYNC_INTERVAL_MS = 120;
 
@@ -65,8 +65,8 @@ async function transpileTypeScript(
   const getWorker = await monaco.languages.typescript.getTypeScriptWorker();
   const client = await getWorker(model.uri);
   const output = await client.getEmitOutput(model.uri.toString());
-  const emitted = output.outputFiles.find((file) =>
-    file.path.endsWith(".js")
+  const emitted = output.outputFiles.find((file:ts.OutputFile) =>
+    file.name.endsWith(".js")
   );
   return emitted?.text ?? model.getValue();
 }
