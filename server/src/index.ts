@@ -1,18 +1,23 @@
 import "dotenv/config";
 
 import { httpServer } from "./infrastructure/http/server.js";
-import "./realtime/websocket/server.js";
+import { setupWebSocket } from "./realtime/websocket/websocket.js";
 
-// Hosts inject the public port here. HTTP and WebSocket share it: the WS server
-// runs in `noServer` mode and upgrades connections on this same listener.
-const PORT = Number(process.env.PORT ?? 3001);
-const HOST = process.env.HOST ?? "0.0.0.0";
+const PORT = Number(
+  process.env.PORT ?? 3001,
+);
 
-async function start() {
-  httpServer.listen(PORT, HOST, () => {
-    console.log(`HTTP server running on http://${HOST}:${PORT}`);
-    console.log(`WebSocket server accepting upgrades on the same port (${PORT})`);
-  });
-}
+const HOST =
+  process.env.HOST ?? "0.0.0.0";
 
-start();
+setupWebSocket(httpServer);
+
+httpServer.listen(
+  PORT,
+  HOST,
+  () => {
+    console.log(
+      `HTTP + WebSocket server running on ${HOST}:${PORT}`,
+    );
+  },
+);

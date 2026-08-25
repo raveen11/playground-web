@@ -58,6 +58,8 @@ In short, this app is a place where learning and experimentation are the main go
 
 ## Architecture
 
+**New here?** Start with the plain-language data-flow guide: [WORKFLOW.md](./WORKFLOW.md)
+
 This monorepo is organized in a simple and flexible way:
 
 ### frontend
