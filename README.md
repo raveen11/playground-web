@@ -100,6 +100,8 @@ Responsibilities:
 - React
 - TypeScript
 - Node.js
+- Express
+- Prisma ORM (Supabase Postgres)
 - WebSockets
 - pnpm workspaces
 - Zod
@@ -136,11 +138,54 @@ multiplayer-kanban/
 
 - Node.js 20+
 - pnpm
+- A Supabase Postgres project (for auth + document RAG)
 
 ### Install dependencies
 
 ```bash
 pnpm install
+```
+
+### Supabase / Prisma env vars (`server/.env`)
+
+Prisma uses **two** Postgres URLs against the same Supabase database:
+
+| Variable | Purpose | Supabase tip |
+|----------|---------|--------------|
+| `DATABASE_URL` | Pooled runtime queries (`PrismaClient` via `@prisma/adapter-pg`) | Transaction pooler on **port 6543**, typically with `?pgbouncer=true` |
+| `DIRECT_URL` | Migrations / introspection (`prisma.config.ts` → Prisma Migrate) | Direct or session-mode connection on **port 5432** (no `pgbouncer=true`) |
+
+Prisma 7 keeps URLs out of `schema.prisma`: runtime uses `DATABASE_URL` through the pg adapter; the CLI reads `DIRECT_URL` from `prisma.config.ts`.
+
+Example shape (replace credentials with your Project Settings → Database values):
+
+```bash
+# Runtime — pooled (6543)
+DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true"
+
+# Migrations — direct / session (5432)
+DIRECT_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+# Prefer the "Direct connection" host (db.<project-ref>.supabase.co:5432) when available.
+```
+
+Auth-related vars:
+
+```bash
+JWT_ACCESS_SECRET="long-random-string"
+JWT_REFRESH_SECRET="another-long-random-string"
+COOKIE_SECURE=false          # true behind HTTPS
+APP_URL=http://localhost:3003
+SUPERADMIN_EMAIL=superadmin@example.com
+SUPERADMIN_PASSWORD=ChangeMeNow!123
+SUPERADMIN_NAME=Super Admin
+```
+
+Then from `server/`:
+
+```bash
+pnpm db:migrate   # create/apply Prisma migrations via DIRECT_URL
+pnpm db:seed      # bootstrap the single super_admin user
+pnpm dev
 ```
 
 ### Run the project
@@ -160,10 +205,29 @@ pnpm dev:server
 
 ---
 
+## Multi-tenant auth API (server)
+
+Role hierarchy: `super_admin` (platform) → `company_admin` (tenant) → `company_user` (tenant).
+
+| Method | Path | Access |
+|--------|------|--------|
+| `POST` | `/api/signup` | Public — company (`pending`) + first `company_admin` |
+| `POST` | `/api/admin/companies` | `super_admin` — company (`active`) + invite for first admin |
+| `POST` | `/api/company/users` | `company_admin` — create user or invite in own company |
+| `POST` | `/api/invites/:token/accept` | Public — set password, activate invite |
+| `POST` | `/api/auth/login` | Public |
+| `POST` | `/api/auth/refresh` | Rotates refresh cookie |
+| `POST` | `/api/auth/logout` | Revokes refresh session |
+| `GET` | `/api/auth/me` | Authenticated |
+
+Access tokens (~15 min) and refresh tokens live in httpOnly cookies (`access_token`, `refresh_token`). Call APIs with `credentials: "include"`.
+
+---
+
 ## Local URLs
 
 - Web app: http://localhost:3003
-- WebSocket server: http://localhost:3002
+- HTTP + WebSocket server: http://localhost:3001
 
 ---
 

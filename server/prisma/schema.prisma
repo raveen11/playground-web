@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CompanyStatus {
+  pending
+  active
+  suspended
+}
+
+enum UserRole {
+  super_admin
+  company_admin
+  company_user
+}
+
+enum UserStatus {
+  invited
+  active
+  disabled
+}
+
+model Company {
+  id        String        @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String        @unique
+  status    CompanyStatus @default(pending)
+  createdBy String?       @db.Uuid
+  createdAt DateTime      @default(now())
+
+  users   User[]
+  invites Invite[]
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  companyId    String?    @db.Uuid
+  status       UserStatus @default(active)
+  invitedBy    String?    @db.Uuid
+  createdAt    DateTime   @default(now())
+
+  company      Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inviter      User?     @relation("UserInvites", fields: [invitedBy], references: [id], onDelete: SetNull)
+  invitedUsers User[]    @relation("UserInvites")
+  invitesSent  Invite[]  @relation("InviteSender")
+  sessions     Session[]
+
+  @@index([companyId])
+}
+
+model Invite {
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String
+  companyId  String    @db.Uuid
+  role       UserRole  @default(company_user)
+  token      String    @unique
+  invitedBy  String    @db.Uuid
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inviter User    @relation("InviteSender", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([email])
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
