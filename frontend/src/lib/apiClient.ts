@@ -1,12 +1,49 @@
 import { API_BASE_URL } from "./config";
 
 interface FetchOptions extends RequestInit {
-  data?: any;
+  data?: unknown;
   token?: string;
 }
 
-async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+interface ApiErrorResponse {
+  error?: string;
+  message?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface SignupRequest {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface CreateCompanyRequest {
+  name: string;
+  // Add your actual company fields here
+}
+
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  // Add your actual user fields here
+}
+
+export interface AcceptInviteRequest {
+  // Add the actual fields from your invite form
+  name?: string;
+  password?: string;
+}
+
+async function fetchApi<T>(
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<T> {
   const { data, token, headers, ...rest } = options;
+
   const config: RequestInit = {
     ...rest,
     headers: {
@@ -14,12 +51,10 @@ async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promis
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
+    credentials: "include",
   };
 
-  // Needed for cookies (refresh token, etc.)
-  config.credentials = "include";
-
-  if (data) {
+  if (data !== undefined) {
     config.body = JSON.stringify(data);
   }
 
@@ -27,33 +62,71 @@ async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promis
 
   if (!response.ok) {
     let errorMsg = response.statusText;
+
     try {
-      const errorData = await response.json();
-      errorMsg = errorData.error || errorData.message || errorMsg;
-    } catch (e) {
+      const errorData: ApiErrorResponse = await response.json();
+
+      errorMsg =
+        errorData.error ||
+        errorData.message ||
+        errorMsg;
+    } catch {
       // Ignore JSON parse error for error responses
     }
+
     throw new Error(errorMsg);
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 export const api = {
   auth: {
-    login: (data: any) => fetchApi("/auth/login", { method: "POST", data }),
-    signup: (data: any) => fetchApi("/signup", { method: "POST", data }),
-    logout: () => fetchApi("/auth/logout", { method: "POST" }),
-    me: (token?: string) => fetchApi("/auth/me", { method: "GET", token }),
+    login: (data: LoginRequest) =>
+      fetchApi("/auth/login", {
+        method: "POST",
+        data,
+      }),
+
+    signup: (data: SignupRequest) =>
+      fetchApi("/signup", {
+        method: "POST",
+        data,
+      }),
+
+    logout: () =>
+      fetchApi("/auth/logout", {
+        method: "POST",
+      }),
+
+    me: (token?: string) =>
+      fetchApi("/auth/me", {
+        method: "GET",
+        token,
+      }),
   },
+
   admin: {
-    createCompany: (data: any) => fetchApi("/admin/companies", { method: "POST", data }),
+    createCompany: (data: CreateCompanyRequest) =>
+      fetchApi("/admin/companies", {
+        method: "POST",
+        data,
+      }),
   },
+
   company: {
-    createUser: (data: any) => fetchApi("/company/users", { method: "POST", data }),
+    createUser: (data: CreateUserRequest) =>
+      fetchApi("/company/users", {
+        method: "POST",
+        data,
+      }),
   },
+
   invites: {
-    accept: (token: string, data: any) =>
-      fetchApi(`/invites/${token}/accept`, { method: "POST", data }),
+    accept: (token: string, data: AcceptInviteRequest) =>
+      fetchApi(`/invites/${token}/accept`, {
+        method: "POST",
+        data,
+      }),
   },
 };

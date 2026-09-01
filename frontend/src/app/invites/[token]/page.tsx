@@ -8,7 +8,7 @@ import Link from "next/link";
 export default function InviteAcceptPage({ params }: { params: Promise<{ token: string }> }) {
   const router = useRouter();
   const { token } = use(params);
-  
+
   const [formData, setFormData] = useState({
     name: "",
     password: "",
@@ -19,7 +19,6 @@ export default function InviteAcceptPage({ params }: { params: Promise<{ token: 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -28,8 +27,12 @@ export default function InviteAcceptPage({ params }: { params: Promise<{ token: 
     try {
       await api.invites.accept(token, formData);
       router.push("/login");
-    } catch (err: any) {
-      setError(err.message || "Failed to accept invite");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to accept invite");
+      } else {
+        setError("Failed to accept invite");
+      }
     } finally {
       setIsLoading(false);
     }

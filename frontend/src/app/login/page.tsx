@@ -20,8 +20,12 @@ export default function LoginPage() {
     try {
       await api.auth.login({ email, password });
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to login");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to login");
+      } else {
+        setError("Failed to login");
+      }
     } finally {
       setIsLoading(false);
     }
