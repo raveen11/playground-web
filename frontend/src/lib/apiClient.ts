@@ -2,14 +2,16 @@ import { API_BASE_URL } from "./config";
 
 interface FetchOptions extends RequestInit {
   data?: any;
+  token?: string;
 }
 
 async function fetchApi<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-  const { data, headers, ...rest } = options;
+  const { data, token, headers, ...rest } = options;
   const config: RequestInit = {
     ...rest,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
   };
@@ -42,7 +44,7 @@ export const api = {
     login: (data: any) => fetchApi("/auth/login", { method: "POST", data }),
     signup: (data: any) => fetchApi("/signup", { method: "POST", data }),
     logout: () => fetchApi("/auth/logout", { method: "POST" }),
-    me: () => fetchApi("/auth/me", { method: "GET" }),
+    me: (token?: string) => fetchApi("/auth/me", { method: "GET", token }),
   },
   admin: {
     createCompany: (data: any) => fetchApi("/admin/companies", { method: "POST", data }),
