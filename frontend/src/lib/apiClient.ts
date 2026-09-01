@@ -29,6 +29,8 @@ export interface CreateCompanyRequest {
 export interface CreateUserRequest {
   name: string;
   email: string;
+  password?: string;
+  sendInvite?: boolean;
   // Add your actual user fields here
 }
 

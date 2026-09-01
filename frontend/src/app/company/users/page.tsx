@@ -39,8 +39,12 @@ export default function CompanyUsersPage() {
       });
       setSuccess(`User ${formData.email} added successfully!`);
       setFormData({ name: "", email: "", password: "", sendInvite: true });
-    } catch (err: any) {
-      setError(err.message || "Failed to add user");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to add user");
+      } else {
+        setError("Failed to add user");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +67,7 @@ export default function CompanyUsersPage() {
               Invite a Team Member
             </h3>
             <div className="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-              <p>Add a new user to your company's workspace.</p>
+              <p>Add a new user to your company&apos;s workspace.</p>
             </div>
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">

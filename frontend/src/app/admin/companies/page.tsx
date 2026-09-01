@@ -28,8 +28,12 @@ export default function AdminCompaniesPage() {
       await api.admin.createCompany(formData);
       setSuccess(`Company ${formData.name} created successfully!`);
       setFormData({ name: "", slug: "", adminEmail: "", adminName: "" }); // reset
-    } catch (err: any) {
-      setError(err.message || "Failed to create company");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to create company");
+      } else {
+        setError("Failed to create company");
+      }
     } finally {
       setIsLoading(false);
     }
