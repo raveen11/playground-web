@@ -54,6 +54,10 @@ export function createApp(): Express {
   app.use("/api/documents", documentsRouter);
   app.use("/api/chat", chatRouter);
 
+  console.log("NODE_ENV:", process.env.NODE_ENV);
+  console.log("COOKIE_SECURE:", process.env.COOKIE_SECURE);
+  console.log("CORS_ORIGINS:", process.env.CORS_ORIGINS);
+  console.log("ALLOWED_ORIGINS:", allowedOrigins);
   return app;
 }
 
