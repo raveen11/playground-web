@@ -4,12 +4,12 @@ export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
 
 function baseCookieOptions(): CookieOptions {
-  const secure = process.env.COOKIE_SECURE === "true";
+  const isProduction = process.env.NODE_ENV === "production";
 
   return {
     httpOnly: true,
-    secure,
-    sameSite: secure ? "none" : "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     path: "/",
   };
 }
