@@ -4,7 +4,8 @@ export const ACCESS_COOKIE = "access_token";
 export const REFRESH_COOKIE = "refresh_token";
 
 function baseCookieOptions(): CookieOptions {
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = true;
+  // process.env.NODE_ENV === "production";
 
   return {
     httpOnly: true,
