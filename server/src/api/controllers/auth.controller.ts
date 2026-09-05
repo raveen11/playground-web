@@ -13,6 +13,7 @@ import {
 } from "../../lib/auth/session.js";
 import { readRefreshToken } from "../middleware/auth.middleware.js";
 import type { LoginInput, SignupInput } from "../schemas/auth.schemas.js";
+import { googleClient } from "../../config/google.js";
 
 export const signup: RequestHandler = async (req, res) => {
   const body = req.body as SignupInput;
@@ -175,3 +176,135 @@ export const me: RequestHandler = async (req, res) => {
     res.status(500).json({ message: "Failed to load current user" });
   }
 };
+
+export const googleAuth: RequestHandler = async (req, res) => {
+  const authUrl = googleClient.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['email', 'profile']
+  });
+  res.redirect(authUrl);
+}
+export const googleCallback: RequestHandler = async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    if (!code || typeof code !== "string") {
+      return res.status(400).json({
+        message: "Missing authorization code",
+      });
+    }
+
+    const { tokens } = await googleClient.getToken(code);
+
+    googleClient.setCredentials(tokens);
+
+    // 3. Make sure Google gave us an ID token
+    if (!tokens.id_token) {
+      return res.status(400).json({
+        message: "Google ID token missing",
+      });
+    }
+
+    // 4. Verify the ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    // 5. Get Google user's information
+    const payload = ticket.getPayload();
+
+    if (!payload) {
+      return res.status(400).json({
+        message: "Could not get Google user information",
+      });
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email;
+    const name = payload.name;
+    const picture = payload.picture;
+
+    if (!googleId || !email) {
+      return res.status(400).json({
+        message: "Google account information incomplete",
+      });
+    }
+
+
+    // 5. Find user by Google ID
+    let user = await prisma.user.findUnique({
+      where: {
+        googleId,
+      },
+    });
+
+    // 6. If Google account doesn't exist,
+    //    check whether email already exists
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+    }
+
+    // 7. If user doesn't exist at all,
+    //    create a new user
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: name ?? "",
+          googleId,
+          passwordHash: "",
+          // Use the values that match your application
+          role: "company_admin",
+          status: "active",
+          // Google signup doesn't have a company yet
+          companyId: "a77e4cbf-6bee-4028-b2e8-4b404c27eb9f",
+        },
+      });
+    }
+
+    // 8. Existing account without Google
+    //    connect Google to that account
+    else if (!user.googleId) {
+      user = await prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          googleId,
+          name: name ?? user.name,
+        },
+      });
+    }
+
+    // 9. Create YOUR application's session
+    const sessionTokens = await createSessionTokens(user);
+
+    // 10. Use YOUR existing cookie system
+    setAuthCookies(
+      res,
+      sessionTokens.accessToken,
+      sessionTokens.refreshToken
+    );
+
+    // 11. Return user
+    // res.status(200).json({
+    //   user: publicUser(user),
+    // });
+
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/`
+    );
+    // Continue below...
+  } catch (error) {
+    console.error("Google OAuth error:", error);
+
+    return res.status(500).json({
+      message: "Google authentication failed",
+    });
+  }
+}

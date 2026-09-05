@@ -1,5 +1,7 @@
 import { Router, type Router as ExpressRouter } from "express";
 import {
+  googleAuth,
+  googleCallback,
   login,
   logout,
   me,
@@ -15,3 +17,5 @@ authRouter.post("/login", validateBody(loginSchema), login);
 authRouter.post("/refresh", refresh);
 authRouter.post("/logout", logout);
 authRouter.get("/me", requireAuth, me);
+authRouter.get("/google", googleAuth);
+authRouter.get("/google/callback", googleCallback) 

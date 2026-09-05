@@ -27,25 +27,28 @@
     "cors": "^2.8.6",
     "drizzle-orm": "^0.40.0",
     "express": "^5.2.1",
+    "google-auth-library": "^11.0.2",
     "jose": "^6.2.10",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "ollama": "^0.6.3",
     "onnxruntime-web": "^1.27.0",
     "openai": "^7.5.0",
     "pg": "^8.23.0",
     "ws": "^8.18.0",
-    "zod": "^3.24.1",
-    "prisma": "7.10.0"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.23.1",
     "@types/ws": "^8.5.13",
     "dotenv": "^17.4.2",
+    "prisma": "7.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

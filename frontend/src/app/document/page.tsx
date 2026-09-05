@@ -10,9 +10,9 @@ import { API_BASE_URL } from "@/lib/config";
 type Document = {
   id: number;
   name: string;
-  file_type: string;
-  file_data: Buffer;
-  created_at: string;
+  fileType: string;
+  fileData: Buffer;
+  createdAt: string;
   content: string;
 };
 
@@ -46,6 +46,8 @@ export default function DocumentsPage() {
     return <div>Loading...</div>;
   }
 
+
+  console.log('ABCD-doc', documents)
   return (
     <div className="p-6">
       <h1 className="mb-6 text-2xl font-bold">Documents</h1>
@@ -65,7 +67,7 @@ export default function DocumentsPage() {
                 <h2>{document.name}</h2>
 
                 <p className="mt-1 text-sm font-normal text-gray-500">
-                  {new Date(document.created_at).toLocaleString()}
+                  {new Date(document.createdAt).toLocaleString()}
                 </p>
               </div>
 
