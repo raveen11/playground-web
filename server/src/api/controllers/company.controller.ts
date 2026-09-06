@@ -109,3 +109,39 @@ export const createCompanyUser: RequestHandler = async (req, res) => {
     res.status(500).json({ message: "Failed to create company user" });
   }
 };
+
+export const getCompanyUsers: RequestHandler = async (req, res) => {
+  try {
+    let companyId = req.user?.companyId;
+
+    if (!companyId) {
+      const defaultCompany = await prisma.company.findFirst({
+        orderBy: { createdAt: "asc" },
+      });
+      companyId = defaultCompany?.id;
+    }
+
+    if (!companyId) {
+      res.json([]);
+      return;
+    }
+
+    const users = await prisma.user.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        companyId: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error("Get company users failed:", error);
+    res.status(500).json({ message: "Failed to get company users" });
+  }
+};

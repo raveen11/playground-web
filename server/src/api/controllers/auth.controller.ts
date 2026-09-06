@@ -262,7 +262,7 @@ export const googleCallback: RequestHandler = async (req, res) => {
           role: "company_admin",
           status: "active",
           // Google signup doesn't have a company yet
-          companyId: "a77e4cbf-6bee-4028-b2e8-4b404c27eb9f",
+          companyId: "b31a81fe-b5d0-4d7d-ad22-b428dffbe86b",
         },
       });
     }

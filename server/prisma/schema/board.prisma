@@ -1,27 +1,96 @@
 model Board {
-    id          Int             @id @default(autoincrement())
-    name        String
-    columns     Column[]
-    createdAt   DateTime        @default(now())
-    updatedAt   DateTime        @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  columns      BoardColumn[]
+  tickets      Ticket[]
+  chatMessages ChatMessage[]
+
+  @@index([companyId])
+  @@map("boards")
 }
 
-model Column {
-    id          Int             @id @default(autoincrement())
-    name        String
-    boardId     Int
-    board       Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
-    cards       Card[]
-    createdAt   DateTime        @default(now())
-    updatedAt   DateTime        @updatedAt
+model BoardColumn {
+  id        String   @id @default(uuid()) @db.Uuid
+  boardId   String   @map("board_id") @db.Uuid
+  name      String
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  board   Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+
+  @@unique([boardId, position])
+  @@index([boardId])
+  @@map("board_columns")
 }
 
-model Card {
-    id          Int             @id @default(autoincrement())
-    title       String
-    description String?
-    columnId    Int
-    column      Column          @relation(fields: [columnId], references: [id], onDelete: Cascade)
-    createdAt   DateTime        @default(now())
-    updatedAt   DateTime        @updatedAt
+model Ticket {
+  id         String  @id @default(uuid()) @db.Uuid
+  boardId    String  @map("board_id") @db.Uuid
+  columnId   String  @map("column_id") @db.Uuid
+  assigneeId String? @map("assignee_id") @db.Uuid
+
+  title       String
+  description String?
+  position    Int
+
+  priority String?
+  status   String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  board    Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  column   BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  assignee User?       @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([boardId])
+  @@index([columnId])
+  @@index([assigneeId])
+  @@map("tickets")
+}
+
+model ChatMessage {
+  id        String  @id @default(uuid()) @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  boardId   String? @map("board_id") @db.Uuid
+  senderId  String  @map("sender_id") @db.Uuid
+
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  board   Board?  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([boardId, createdAt])
+  @@index([senderId])
+  @@map("chat_messages")
+}
+
+model SocialMedia {
+  id        String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+
+  platform    String
+  username    String?
+  profileUrl  String? @map("profile_url")
+  accessToken String? @map("access_token")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("social_media")
 }

@@ -1,5 +1,9 @@
 import WebSocket from "ws";
 import { RealtimeContext } from "../context.js";
+import { prisma } from "../../lib/prisma.js";
+import { boardService } from "../../services/board.service.js";
+import { ticketService } from "../../services/ticket.service.js";
+import { chatService } from "../../services/chat.service.js";
 
 import {
   type CardCreateMsg,
@@ -18,10 +22,7 @@ import {
 } from "@kanban/shared";
 import { sendError } from "../error.js";
 
-function getClient(
-  ws: WebSocket,
-  context: RealtimeContext,
-) {
+function getClient(ws: WebSocket, context: RealtimeContext) {
   return context.rooms.findBySocket(ws);
 }
 
@@ -33,11 +34,7 @@ export function handlePaperData(
   const client = getClient(ws, context);
 
   if (!client) {
-    sendError(
-      ws,
-      "Not joined to a board.",
-      "not_joined",
-    );
+    sendError(ws, "Not joined to a board.", "not_joined");
     return;
   }
 
@@ -49,414 +46,387 @@ export function handlePaperData(
   });
 }
 
-export function handleJoinMessage(
+export async function handleJoinMessage(
   ws: WebSocket,
   data: JoinRoomMsg,
   context: RealtimeContext,
 ) {
-  const roleResult =
-    RoleSchema.safeParse(
-      data.role ?? "viewer",
-    );
+  const roleResult = RoleSchema.safeParse(data.role ?? "viewer");
+  const role = roleResult.success ? roleResult.data : "viewer";
 
-  const role =
-    roleResult.success
-      ? roleResult.data
-      : "viewer";
-
-  context.boardState.ensureBoard(
-    data.boardId,
-  );
-
-  context.rooms.join(
-    data.boardId,
-    {
-      ws,
-      userId: data.userId,
-      name: data.name,
-      role,
-    },
-  );
-
-  const state =
-    context.boardState.getBoardState(
-      data.boardId,
-    );
-
-  const sync: SyncStateMsg = {
-    type: "sync:state",
-    columns: state.columns,
-    cards: state.cards,
-    seq: context.rooms.nextSeq(
-      data.boardId,
-    ),
-  };
-
-  context.rooms.send(
+  context.rooms.join(data.boardId, {
     ws,
-    sync,
-  );
+    userId: data.userId,
+    name: data.name,
+    role,
+  });
 
-  context.rooms.send(
-    ws,
-    {
-      type: "chat:history",
-      messages:
-        context.boardState.getChat(
-          data.boardId,
-        ),
-    },
-  );
+  try {
+    const defaultCompany = await prisma.company.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    const companyId = defaultCompany ? defaultCompany.id : undefined;
 
-  context.rooms.broadcast(
-    data.boardId,
-    {
-      type: "presence:update",
-      users:
-        context.rooms.listPresence(
-          data.boardId,
-        ),
-    },
-  );
-}
+    let dbBoard = null;
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        data.boardId,
+      );
 
-export function handleHeartbeat(
-  ws: WebSocket,
-  context: RealtimeContext,
-) {
-  const client = getClient(
-    ws,
-    context,
-  );
+    if (isUuid) {
+      dbBoard = await boardService.getBoard(data.boardId, companyId);
+    }
+    if (!dbBoard && companyId) {
+      dbBoard = await boardService.ensureDefaultBoard(companyId);
+    }
 
-  if (!client) {
-    return;
+    if (dbBoard) {
+      const columns = dbBoard.columns.map((c) => ({
+        id: c.id,
+        boardId: data.boardId,
+        title: c.name,
+        order: c.position,
+      }));
+
+      const cards = dbBoard.columns.flatMap((c) =>
+        c.tickets.map((t) => ({
+          id: t.id,
+          columnId: t.columnId,
+          title: t.title,
+          description: t.description,
+          order: String(t.position),
+          position: t.position,
+          priority: t.priority,
+          status: t.status,
+          assigneeId: t.assigneeId,
+          assignee: t.assignee,
+          updatedAt: t.updatedAt.toISOString(),
+          updatedBy: t.assignee?.name || "system",
+        })),
+      );
+
+      context.boardState.setColumns(data.boardId, columns);
+      context.boardState.setCards(data.boardId, cards);
+
+      const sync: SyncStateMsg = {
+        type: "sync:state",
+        columns,
+        cards,
+        seq: context.rooms.nextSeq(data.boardId),
+      };
+
+      context.rooms.send(ws, sync);
+
+      if (companyId) {
+        const chatMessages = await chatService.listMessages(
+          companyId,
+          isUuid ? data.boardId : undefined,
+          100,
+        );
+
+        context.rooms.send(ws, {
+          type: "chat:history",
+          messages: chatMessages.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            name: m.name,
+            color: "#64748b",
+            text: m.text,
+            sentAt: m.sentAt,
+          })),
+        });
+      }
+    } else {
+      context.boardState.ensureBoard(data.boardId);
+      const state = context.boardState.getBoardState(data.boardId);
+      context.rooms.send(ws, {
+        type: "sync:state",
+        columns: state.columns,
+        cards: state.cards,
+        seq: context.rooms.nextSeq(data.boardId),
+      });
+      context.rooms.send(ws, {
+        type: "chat:history",
+        messages: context.boardState.getChat(data.boardId),
+      });
+    }
+  } catch (error) {
+    console.error("Error loading board from DB during join:", error);
+    context.boardState.ensureBoard(data.boardId);
+    const state = context.boardState.getBoardState(data.boardId);
+    context.rooms.send(ws, {
+      type: "sync:state",
+      columns: state.columns,
+      cards: state.cards,
+      seq: context.rooms.nextSeq(data.boardId),
+    });
   }
 
-  context.rooms.touch(
-    client.boardId,
-    client.userId,
-  );
+  context.rooms.broadcast(data.boardId, {
+    type: "presence:update",
+    users: context.rooms.listPresence(data.boardId),
+  });
 }
 
-export function handleCardMove(
+export function handleHeartbeat(ws: WebSocket, context: RealtimeContext) {
+  const client = getClient(ws, context);
+  if (!client) return;
+  context.rooms.touch(client.boardId, client.userId);
+}
+
+export async function handleCardMove(
   ws: WebSocket,
   data: CardMoveMsg,
   context: RealtimeContext,
 ) {
-  const client = getClient(
-    ws,
-    context,
-  );
-
+  const client = getClient(ws, context);
   if (!client) {
-    sendError(
-      ws,
-      "Not joined to a board.",
-      "not_joined",
-    );
+    sendError(ws, "Not joined to a board.", "not_joined");
     return;
   }
 
   if (client.role === "viewer") {
-    sendError(
-      ws,
-      "Viewers cannot move cards.",
-      "permission_denied",
-    );
+    sendError(ws, "Viewers cannot move cards.", "permission_denied");
     return;
   }
 
-  const boardCards =
-    context.boardState.getCards(
-      client.boardId,
-    );
+  try {
+    const defaultCompany = await prisma.company.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    if (defaultCompany) {
+      const isCardUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          data.cardId,
+        );
+      const isColUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          data.toColumnId,
+        );
 
-  const card =
-    boardCards.find(
-      (item) =>
-        item.id === data.cardId,
-    );
-
-  if (!card) {
-    sendError(
-      ws,
-      "Card not found.",
-      "not_found",
-    );
-    return;
+      if (isCardUuid && isColUuid) {
+        await ticketService.moveTicket(data.cardId, defaultCompany.id, {
+          toColumnId: data.toColumnId,
+          position: Math.max(0, parseInt(data.order, 10) || 0),
+        });
+      }
+    }
+  } catch (err) {
+    console.error("handleCardMove DB error:", err);
   }
 
-  card.columnId =
-    data.toColumnId;
+  const boardCards = context.boardState.getCards(client.boardId);
+  const card = boardCards.find((item) => item.id === data.cardId);
 
-  card.order =
-    data.order;
+  if (card) {
+    card.columnId = data.toColumnId;
+    card.order = data.order;
+    card.updatedAt = data.updatedAt;
+    card.updatedBy = data.updatedBy;
+    context.boardState.setCards(client.boardId, boardCards);
+  }
 
-  card.updatedAt =
-    data.updatedAt;
-
-  card.updatedBy =
-    data.updatedBy;
-
-  context.boardState.setCards(
-    client.boardId,
-    boardCards,
-  );
-
-  context.rooms.broadcast(
-    client.boardId,
-    {
-      type: "card:move",
-      cardId: data.cardId,
-      toColumnId:
-        data.toColumnId,
-      order: data.order,
-      updatedAt:
-        data.updatedAt,
-      updatedBy:
-        data.updatedBy,
-    },
-  );
+  context.rooms.broadcast(client.boardId, {
+    type: "card:move",
+    cardId: data.cardId,
+    toColumnId: data.toColumnId,
+    order: data.order,
+    updatedAt: data.updatedAt,
+    updatedBy: data.updatedBy,
+  });
 
   const ack: CardMoveAckMsg = {
     type: "card:move:ack",
     cardId: data.cardId,
-    toColumnId:
-      data.toColumnId,
+    toColumnId: data.toColumnId,
     order: data.order,
-    updatedAt:
-      data.updatedAt,
-    updatedBy:
-      data.updatedBy,
+    updatedAt: data.updatedAt,
+    updatedBy: data.updatedBy,
     accepted: true,
-    seq: context.rooms.nextSeq(
-      client.boardId,
-    ),
+    seq: context.rooms.nextSeq(client.boardId),
   };
 
-  context.rooms.send(
-    ws,
-    ack,
-  );
+  context.rooms.send(ws, ack);
 }
 
-export function handleCardCreate(
+export async function handleCardCreate(
   ws: WebSocket,
   data: CardCreateMsg,
   context: RealtimeContext,
 ) {
-  const client = getClient(
-    ws,
-    context,
-  );
-
+  const client = getClient(ws, context);
   if (!client) {
-    sendError(
-      ws,
-      "Not joined to a board.",
-      "not_joined",
-    );
+    sendError(ws, "Not joined to a board.", "not_joined");
     return;
   }
 
   if (client.role === "viewer") {
-    sendError(
-      ws,
-      "Viewers cannot create cards.",
-      "permission_denied",
-    );
+    sendError(ws, "Viewers cannot create cards.", "permission_denied");
     return;
   }
 
-  const boardColumns =
-    context.boardState.getColumns(
-      client.boardId,
-    );
+  let cardId = data.card.id;
+  let columnId = data.card.columnId;
 
-  const columnId =
-    data.card.columnId ||
-    boardColumns[0]?.id;
+  try {
+    const defaultCompany = await prisma.company.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    if (defaultCompany) {
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          client.boardId,
+        );
+      let boardId = client.boardId;
+      if (!isUuid) {
+        const defaultBoard = await boardService.ensureDefaultBoard(
+          defaultCompany.id,
+        );
+        if (defaultBoard) {
+          boardId = defaultBoard.id;
+        }
+      }
 
-  if (!columnId) {
-    sendError(
-      ws,
-      "No destination column available.",
-      "missing_column",
-    );
-    return;
+      const board = await boardService.getBoard(boardId, defaultCompany.id);
+      const targetColumn =
+        board?.columns.find((c) => c.id === data.card.columnId) ||
+        board?.columns[0];
+
+      if (targetColumn) {
+        const ticket = await ticketService.createTicket(defaultCompany.id, {
+          boardId,
+          columnId: targetColumn.id,
+          title: data.card.title,
+          description: data.card.description,
+          position: targetColumn.tickets.length,
+        });
+
+        cardId = ticket.id;
+        columnId = ticket.columnId;
+      }
+    }
+  } catch (err) {
+    console.error("handleCardCreate DB error:", err);
   }
 
-  const boardCards =
-    context.boardState.getCards(
-      client.boardId,
-    );
-
+  const boardCards = context.boardState.getCards(client.boardId);
   const nextCard = {
     ...data.card,
+    id: cardId,
     columnId,
-    updatedAt:
-      new Date().toISOString(),
-    updatedBy:
-      data.updatedBy,
+    updatedAt: new Date().toISOString(),
+    updatedBy: data.updatedBy,
   };
 
   boardCards.push(nextCard);
+  context.boardState.setCards(client.boardId, boardCards);
 
-  context.boardState.setCards(
-    client.boardId,
-    boardCards,
-  );
-
-  context.rooms.broadcast(
-    client.boardId,
-    {
-      type: "card:create",
-      card: nextCard,
-      updatedBy:
-        data.updatedBy,
-    },
-  );
+  context.rooms.broadcast(client.boardId, {
+    type: "card:create",
+    card: nextCard,
+    updatedBy: data.updatedBy,
+  });
 }
 
-export function handleCardUpdate(
+export async function handleCardUpdate(
   ws: WebSocket,
   data: CardUpdateMsg,
   context: RealtimeContext,
 ) {
-  const client = getClient(
-    ws,
-    context,
-  );
-
+  const client = getClient(ws, context);
   if (!client) {
-    sendError(
-      ws,
-      "Not joined to a board.",
-      "not_joined",
-    );
+    sendError(ws, "Not joined to a board.", "not_joined");
     return;
   }
 
   if (client.role === "viewer") {
-    sendError(
-      ws,
-      "Viewers cannot update cards.",
-      "permission_denied",
-    );
+    sendError(ws, "Viewers cannot update cards.", "permission_denied");
     return;
   }
 
-  const boardCards =
-    context.boardState.getCards(
-      client.boardId,
-    );
+  try {
+    const defaultCompany = await prisma.company.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    const isCardUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        data.cardId,
+      );
 
-  const card =
-    boardCards.find(
-      (item) =>
-        item.id === data.cardId,
-    );
-
-  if (!card) {
-    sendError(
-      ws,
-      "Card not found.",
-      "not_found",
-    );
-    return;
+    if (defaultCompany && isCardUuid) {
+      await ticketService.updateTicket(data.cardId, defaultCompany.id, {
+        title: data.title,
+        description: data.description,
+      });
+    }
+  } catch (err) {
+    console.error("handleCardUpdate DB error:", err);
   }
 
-  if (
-    data.title !== undefined
-  ) {
-    card.title = data.title;
+  const boardCards = context.boardState.getCards(client.boardId);
+  const card = boardCards.find((item) => item.id === data.cardId);
+
+  if (card) {
+    if (data.title !== undefined) card.title = data.title;
+    if (data.description !== undefined) card.description = data.description;
+    card.updatedAt = data.updatedAt;
+    card.updatedBy = data.updatedBy;
+    context.boardState.setCards(client.boardId, boardCards);
   }
 
-  if (
-    data.description !== undefined
-  ) {
-    card.description =
-      data.description;
-  }
-
-  card.updatedAt =
-    data.updatedAt;
-
-  card.updatedBy =
-    data.updatedBy;
-
-  context.boardState.setCards(
-    client.boardId,
-    boardCards,
-  );
-
-  context.rooms.broadcast(
-    client.boardId,
-    {
-      type: "card:update",
-      cardId: data.cardId,
-      title: data.title,
-      description:
-        data.description,
-      updatedBy:
-        data.updatedBy,
-      updatedAt:
-        data.updatedAt,
-    },
-  );
+  context.rooms.broadcast(client.boardId, {
+    type: "card:update",
+    cardId: data.cardId,
+    title: data.title,
+    description: data.description,
+    updatedBy: data.updatedBy,
+    updatedAt: data.updatedAt,
+  });
 }
 
-export function handleCardDelete(
+export async function handleCardDelete(
   ws: WebSocket,
   data: CardDeleteMsg,
   context: RealtimeContext,
 ) {
-  const client = getClient(
-    ws,
-    context,
-  );
-
+  const client = getClient(ws, context);
   if (!client) {
-    sendError(
-      ws,
-      "Not joined to a board.",
-      "not_joined",
-    );
+    sendError(ws, "Not joined to a board.", "not_joined");
     return;
   }
 
   if (client.role === "viewer") {
-    sendError(
-      ws,
-      "Viewers cannot delete cards.",
-      "permission_denied",
-    );
+    sendError(ws, "Viewers cannot delete cards.", "permission_denied");
     return;
   }
 
-  const cards =
-    context.boardState
-      .getCards(client.boardId)
-      .filter(
-        (card) =>
-          card.id !== data.cardId,
+  try {
+    const defaultCompany = await prisma.company.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    const isCardUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        data.cardId,
       );
 
-  context.boardState.setCards(
-    client.boardId,
-    cards,
-  );
+    if (defaultCompany && isCardUuid) {
+      await ticketService.deleteTicket(data.cardId, defaultCompany.id);
+    }
+  } catch (err) {
+    console.error("handleCardDelete DB error:", err);
+  }
 
-  context.rooms.broadcast(
-    client.boardId,
-    {
-      type: "card:delete",
-      cardId: data.cardId,
-      updatedBy:
-        data.updatedBy,
-    },
-  );
+  const cards = context.boardState
+    .getCards(client.boardId)
+    .filter((card) => card.id !== data.cardId);
+
+  context.boardState.setCards(client.boardId, cards);
+
+  context.rooms.broadcast(client.boardId, {
+    type: "card:delete",
+    cardId: data.cardId,
+    updatedBy: data.updatedBy,
+  });
 }
 
 export function handleColumnDelete(
@@ -464,61 +434,29 @@ export function handleColumnDelete(
   data: ColumnDeleteMsg,
   context: RealtimeContext,
 ) {
-  const client = getClient(
-    ws,
-    context,
-  );
-
+  const client = getClient(ws, context);
   if (!client) {
-    sendError(
-      ws,
-      "Not joined to a board.",
-      "not_joined",
-    );
+    sendError(ws, "Not joined to a board.", "not_joined");
     return;
   }
 
   if (client.role === "viewer") {
-    sendError(
-      ws,
-      "Viewers cannot delete columns.",
-      "permission_denied",
-    );
+    sendError(ws, "Viewers cannot delete columns.", "permission_denied");
     return;
   }
 
-  const columns =
-    context.boardState
-      .getColumns(client.boardId)
-      .filter(
-        (column) =>
-          column.id !==
-          data.columnId,
-      );
+  const columns = context.boardState
+    .getColumns(client.boardId)
+    .filter((column) => column.id !== data.columnId);
 
-  const cards =
-    context.boardState
-      .getCards(client.boardId)
-      .filter(
-        (card) =>
-          card.columnId !==
-          data.columnId,
-      );
+  const cards = context.boardState
+    .getCards(client.boardId)
+    .filter((card) => card.columnId !== data.columnId);
 
-  context.boardState.setColumns(
-    client.boardId,
-    columns,
-  );
+  context.boardState.setColumns(client.boardId, columns);
+  context.boardState.setCards(client.boardId, cards);
 
-  context.boardState.setCards(
-    client.boardId,
-    cards,
-  );
-
-  context.rooms.broadcast(
-    client.boardId,
-    data,
-  );
+  context.rooms.broadcast(client.boardId, data);
 }
 
 export function handleRequestSync(
@@ -526,38 +464,22 @@ export function handleRequestSync(
   data: RequestSyncMsg,
   context: RealtimeContext,
 ) {
-  const client = getClient(
-    ws,
-    context,
-  );
-
+  const client = getClient(ws, context);
   if (!client) {
-    sendError(
-      ws,
-      "Not joined to a board.",
-      "not_joined",
-    );
+    sendError(ws, "Not joined to a board.", "not_joined");
     return;
   }
 
-  const state =
-    context.boardState.getBoardState(
-      data.boardId,
-    );
+  const state = context.boardState.getBoardState(data.boardId);
 
   const sync: SyncStateMsg = {
     type: "sync:state",
     columns: state.columns,
     cards: state.cards,
-    seq: context.rooms.nextSeq(
-      data.boardId,
-    ),
+    seq: context.rooms.nextSeq(data.boardId),
   };
 
-  context.rooms.send(
-    ws,
-    sync,
-  );
+  context.rooms.send(ws, sync);
 }
 
 export function handleCursorMove(
@@ -565,14 +487,8 @@ export function handleCursorMove(
   data: CursorMoveMsg,
   context: RealtimeContext,
 ) {
-  const client = getClient(
-    ws,
-    context,
-  );
-
-  if (!client) {
-    return;
-  }
+  const client = getClient(ws, context);
+  if (!client) return;
 
   context.rooms.setCursor(
     client.boardId,
@@ -581,14 +497,8 @@ export function handleCursorMove(
     data.y,
   );
 
-  context.rooms.broadcast(
-    client.boardId,
-    {
-      type: "presence:update",
-      users:
-        context.rooms.listPresence(
-          client.boardId,
-        ),
-    },
-  );
+  context.rooms.broadcast(client.boardId, {
+    type: "presence:update",
+    users: context.rooms.listPresence(client.boardId),
+  });
 }

@@ -8,6 +8,10 @@ import { signupRouter } from "./routes/signup.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { companyRouter } from "./routes/company.routes.js";
 import { invitesRouter } from "./routes/invites.routes.js";
+import { boardRouter } from "./routes/board.routes.js";
+import { columnRouter } from "./routes/column.routes.js";
+import { ticketRouter } from "./routes/ticket.routes.js";
+import { socialMediaRouter } from "./routes/social-media.routes.js";
 
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",
@@ -50,6 +54,11 @@ export function createApp(): Express {
   app.use("/api/admin", adminRouter);
   app.use("/api/company", companyRouter);
   app.use("/api/invites", invitesRouter);
+
+  app.use("/api/boards", boardRouter);
+  app.use("/api/columns", columnRouter);
+  app.use("/api/tickets", ticketRouter);
+  app.use("/api/social-media", socialMediaRouter);
 
   app.use("/api/documents", documentsRouter);
   app.use("/api/chat", chatRouter);

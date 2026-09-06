@@ -1,30 +1,35 @@
 model Company {
-  id        String        @id @default(uuid()) @db.Uuid
-  name      String
-  slug      String        @unique
-  status    CompanyStatus @default(pending)
-  createdBy String?       @db.Uuid
-  createdAt DateTime      @default(now())
-  invites   Invite[]
-  users     User[]
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String        @unique
+  status       CompanyStatus @default(pending)
+  createdBy    String?       @db.Uuid
+  createdAt    DateTime      @default(now())
+  invites      Invite[]
+  users        User[]
+  boards       Board[]
+  chatMessages ChatMessage[]
+  socialMedia  SocialMedia[]
 }
 
 model User {
-  id           String     @id @default(uuid()) @db.Uuid
-  email        String     @unique
-  passwordHash String
-  name         String
-  role         UserRole
-  companyId    String?    @db.Uuid
-  googleId     String?    @unique
-  status       UserStatus @default(active)
-  invitedBy    String?    @db.Uuid
-  createdAt    DateTime   @default(now())
-  invitesSent  Invite[]   @relation("InviteSender")
-  sessions     Session[]
-  company      Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  inviter      User?      @relation("UserInvites", fields: [invitedBy], references: [id])
-  invitedUsers User[]     @relation("UserInvites")
+  id              String        @id @default(uuid()) @db.Uuid
+  email           String        @unique
+  passwordHash    String
+  name            String
+  role            UserRole
+  companyId       String?       @db.Uuid
+  googleId        String?       @unique
+  status          UserStatus    @default(active)
+  invitedBy       String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  invitesSent     Invite[]      @relation("InviteSender")
+  sessions        Session[]
+  company         Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inviter         User?         @relation("UserInvites", fields: [invitedBy], references: [id])
+  invitedUsers    User[]        @relation("UserInvites")
+  assignedTickets Ticket[]
+  chatMessages    ChatMessage[]
 
   @@index([companyId])
 }

@@ -167,12 +167,34 @@ export const PresenceUpdateMsg = z.object({
 
 export const CardSchema = z.object({
   id: z.string(),
+  boardId: z.string().optional(),
   columnId: z.string(),
   title: z.string(),
   description: z.string().nullable().optional(),
   order: z.string(),
+  position: z.number().optional(),
+  priority: z.string().nullable().optional(),
+  status: z.string().nullable().optional(),
+  assigneeId: z.string().nullable().optional(),
+  assignee: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+    })
+    .nullable()
+    .optional(),
   updatedAt: z.string(),
   updatedBy: z.string(),
+});
+
+export const BoardSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 });
 
 export const ColumnSchema = z.object({

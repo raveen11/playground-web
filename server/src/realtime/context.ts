@@ -15,3 +15,13 @@ export function createRealtimeContext() {
 export type RealtimeContext = ReturnType<
   typeof createRealtimeContext
 >;
+
+export const globalRealtimeContext = createRealtimeContext();
+
+export function broadcastToBoard(boardId: string, message: unknown) {
+  try {
+    globalRealtimeContext.rooms.broadcast(boardId, message);
+  } catch (err) {
+    console.error("Failed to broadcast realtime message:", err);
+  }
+}

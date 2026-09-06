@@ -3,7 +3,7 @@ import {
   WebSocketServer,
   type WebSocket,
 } from "ws";
-import { createRealtimeContext } from "../context.js";
+import { globalRealtimeContext, type RealtimeContext } from "../context.js";
 import { handleMessage } from "../router.js";
 
 
@@ -14,8 +14,7 @@ export function setupWebSocket(
     noServer: true,
   });
 
-  const context =
-    createRealtimeContext();
+  const context = globalRealtimeContext;
 
   httpServer.on(
     "upgrade",
@@ -73,9 +72,7 @@ export function setupWebSocket(
 
 function handleDisconnect(
   ws: WebSocket,
-  context: ReturnType<
-    typeof createRealtimeContext
-  >,
+  context: RealtimeContext,
 ) {
   context.whiteboardRooms.disconnect(
     ws,
@@ -106,9 +103,7 @@ function handleDisconnect(
 }
 
 function startCleanup(
-  context: ReturnType<
-    typeof createRealtimeContext
-  >,
+  context: RealtimeContext,
 ) {
   setInterval(() => {
     context.rooms.pruneStale(

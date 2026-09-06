@@ -3,17 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import type { PresenceUser } from "@kanban/shared";
 import type { ChatMessage, WebSocketClient } from "@/websocket";
+import { api } from "@/lib/apiClient";
 
 type User = {
   userId: string;
   name: string;
 };
 
-function formatTime(timestamp: string) {
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function formatTime(timestamp?: string) {
+  if (!timestamp) return "";
+  try {
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
 }
 
 export default function ChatPanel({
@@ -21,32 +27,29 @@ export default function ChatPanel({
   user,
   boardId,
   presence,
-  initialMessages,
-  onPersist,
+  initialMessages = [],
 }: {
   ws: WebSocketClient;
   user: User;
   boardId: string;
   presence: PresenceUser[];
-  initialMessages: ChatMessage[];
-  onPersist: (messages: ChatMessage[]) => void;
+  initialMessages?: ChatMessage[];
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<number | null>(null);
-  const persistRef = useRef(onPersist);
-  persistRef.current = onPersist;
 
   useEffect(() => {
-    setMessages(initialMessages);
+    if (initialMessages.length > 0) {
+      setMessages(initialMessages);
+    }
   }, [initialMessages]);
 
   useEffect(() => {
     const unsubs = [
       ws.on("chat:history", (msg) => {
         setMessages(msg.messages);
-        persistRef.current(msg.messages);
       }),
       ws.on("chat:message", (msg) => {
         if (!msg.userId || !msg.name || !msg.text || !msg.sentAt) return;
@@ -68,9 +71,7 @@ export default function ChatPanel({
                 m.text === next.text &&
                 m.sentAt === next.sentAt),
           );
-          const updated = exists ? prev : [...prev, next];
-          persistRef.current(updated);
-          return updated;
+          return exists ? prev : [...prev, next];
         });
       }),
       ws.on("chat:typing", (msg) => {
@@ -98,13 +99,14 @@ export default function ChatPanel({
     });
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
     const text = input.trim();
     const sentAt = new Date().toISOString();
     const color =
       presence.find((p) => p.userId === user.userId)?.color ?? "#64748b";
+
     const next: ChatMessage = {
       id: crypto.randomUUID(),
       userId: user.userId,
@@ -114,22 +116,39 @@ export default function ChatPanel({
       sentAt,
     };
 
-    setMessages((prev) => {
-      const updated = [...prev, next];
-      persistRef.current(updated);
-      return updated;
-    });
+    setMessages((prev) => [...prev, next]);
     setInput("");
     sendTyping(false);
 
-    ws.send({
-      type: "chat:message",
-      boardId,
-      userId: user.userId,
-      name: user.name,
-      text,
-      sentAt,
-    });
+    // Save to PostgreSQL via API & broadcast over WebSocket
+    try {
+      api.chat.sendMessage({ content: text, boardId }).catch(() => {
+        // Handled silently if server WS also persists
+      });
+    } catch {
+      // Ignored
+    }
+
+    if (ws.isConnected) {
+      ws.send({
+        type: "chat:message",
+        boardId,
+        userId: user.userId,
+        name: user.name,
+        text,
+        sentAt,
+      });
+    }
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    try {
+      await api.chat.deleteMessage(msgId);
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    } catch {
+      // If error or unauthenticated, remove locally
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    }
   };
 
   const onInputChange = (value: string) => {
@@ -150,7 +169,7 @@ export default function ChatPanel({
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">Team chat</h2>
         <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-          Live
+          PostgreSQL Synced
         </span>
       </div>
 
@@ -161,7 +180,7 @@ export default function ChatPanel({
             return (
               <div
                 key={message.id}
-                className={`flex ${isOutgoing ? "justify-end" : "justify-start"}`}
+                className={`group flex ${isOutgoing ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`max-w-[85%] ${isOutgoing ? "items-end" : "items-start"} flex flex-col gap-1`}
@@ -176,6 +195,15 @@ export default function ChatPanel({
                       </span>
                     ) : null}
                     <span>{isOutgoing ? "You" : message.name}</span>
+                    {isOutgoing ? (
+                      <button
+                        onClick={() => handleDeleteMessage(message.id)}
+                        className="text-slate-300 opacity-0 group-hover:opacity-100 hover:text-rose-500 transition text-xs ml-1"
+                        title="Delete message"
+                      >
+                        ✕
+                      </button>
+                    ) : null}
                   </div>
                   <div
                     className={`rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm ${

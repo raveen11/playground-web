@@ -1,5 +1,8 @@
 import { Router, type Router as ExpressRouter } from "express";
-import { createCompanyUser } from "../controllers/company.controller.js";
+import {
+  createCompanyUser,
+  getCompanyUsers,
+} from "../controllers/company.controller.js";
 import {
   requireAuth,
   requireRole,
@@ -8,6 +11,8 @@ import { validateBody } from "../middleware/validate.middleware.js";
 import { createCompanyUserSchema } from "../schemas/auth.schemas.js";
 
 export const companyRouter: ExpressRouter = Router();
+
+companyRouter.get("/users", getCompanyUsers);
 
 companyRouter.post(
   "/users",
