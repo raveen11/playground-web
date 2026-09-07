@@ -1,0 +1,29 @@
+model Document {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  fileType  String   @map("file_type")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  filePath  String?  @map("file_path")
+  fileSize  BigInt?  @map("file_size")
+  content   String?
+  fileData  Bytes?   @map("file_data")
+
+  chunks DocumentChunk[]
+
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId  String                 @map("document_id") @db.Uuid
+  content     String
+  chunkIndex  Int                    @map("chunk_index")
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  embeddingV2 Unsupported("vector")? @map("embedding_v2")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@map("document_chunks")
+}

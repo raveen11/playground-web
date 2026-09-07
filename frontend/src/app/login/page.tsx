@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
+import { config } from "../../../config";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,6 +31,11 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  const handleLoginWithGoogle = () => {
+    window.location.href =
+      `${config.API_URL}/api/auth/google`;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
@@ -102,6 +108,12 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
+
+        <div>
+          <button onClick={handleLoginWithGoogle}>
+            Login With Google
+          </button>
+        </div>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -1,15 +1,31 @@
 import type { RequestHandler } from "express";
-import type { PoolClient } from "pg";
-
-import pool from "../../infrastructure/database/postgres.js";
-import { createEmbeddings } from "../../infrastructure/ai/embeddings.service.js";
+import { prisma } from "../../lib/prisma.js";
 import { chunkText } from "../../modules/documents/document-chunker.js";
+import { createEmbeddings } from "../../infrastructure/ai/embeddings.service.js";
 
 export const getDocuments: RequestHandler = async (_req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM documents");
+    const documents = await prisma.document.findMany({
+      select: {
+        id: true,
+        name: true,
+        fileType: true,
+        fileSize: true,
+        filePath: true,
+        createdAt: true,
+        content: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    res.json(result.rows);
+    res.json(
+      documents.map((document) => ({
+        ...document,
+        fileSize: document.fileSize?.toString() ?? null,
+      })),
+    );
   } catch (error) {
     console.error("Failed to fetch documents:", error);
 
@@ -20,137 +36,145 @@ export const getDocuments: RequestHandler = async (_req, res) => {
 };
 
 export const uploadDocument: RequestHandler = async (req, res) => {
-  if (!req.file) {
-    res.status(400).json({
-      message: "No file uploaded",
-    });
-    return;
-  }
-
-  const { file } = req;
-
-  const isTextFile =
-    file.mimetype === "text/plain" ||
-    file.mimetype === "text/markdown" ||
-    file.originalname.endsWith(".md");
-
-  if (!isTextFile && file.mimetype !== "application/pdf") {
-    res.status(400).json({
-      message: "Only PDF and MD files are supported",
-    });
-    return;
-  }
-
-  // PDF extraction is not implemented yet.
-  const content = isTextFile
-    ? file.buffer.toString("utf-8")
-    : "";
-
-  if (!content.trim()) {
-    res.status(400).json({
-      message: "No text could be extracted",
-    });
-    return;
-  }
-
-  let client: PoolClient | undefined;
-
   try {
-    client = await pool.connect();
+    const file = req.file;
 
-    await client.query("BEGIN");
-
-    // 1. Save document
-    const documentResult = await client.query(
-      `
-        INSERT INTO documents (
-          name,
-          content,
-          file_size,
-          file_type,
-          file_data
-        )
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING
-          id,
-          name,
-          file_size,
-          file_type,
-          created_at
-      `,
-      [
-        file.originalname,
-        content,
-        file.size,
-        file.mimetype,
-        file.buffer,
-      ],
-    );
-
-    const document = documentResult.rows[0];
-
-    // 2. Split document into chunks
-    const chunks = chunkText(content);
-
-    if (!chunks.length) {
-      throw new Error("Document produced no chunks");
+    if (!file) {
+      res.status(400).json({
+        message: "File is required",
+      });
+      return;
     }
 
-    // 3. Generate Voyage embeddings
-    // createEmbeddings() should use:
-    // input_type: "document"
-    // output_dimension: 1024
+    // --------------------------------------------------
+    // 1. Extract content
+    // --------------------------------------------------
+
+    const content = file.buffer.toString("utf-8");
+
+    if (!content.trim()) {
+      res.status(400).json({
+        message: "File is empty",
+      });
+      return;
+    }
+
+    // --------------------------------------------------
+    // 2. Split content into chunks
+    // --------------------------------------------------
+
+    const chunks = chunkText(content);
+
+    if (chunks.length === 0) {
+      res.status(400).json({
+        message: "No content could be extracted from the file",
+      });
+      return;
+    }
+
+    // --------------------------------------------------
+    // 3. Generate embeddings
+    // IMPORTANT:
+    // Do this BEFORE the database transaction.
+    // --------------------------------------------------
+
     const embeddings = await createEmbeddings(chunks);
 
     if (embeddings.length !== chunks.length) {
       throw new Error(
-        `Embedding count mismatch. Chunks: ${chunks.length}, Embeddings: ${embeddings.length}`,
+        `Embedding count (${embeddings.length}) does not match chunk count (${chunks.length})`,
       );
     }
 
-    // 4. Store chunks + Voyage embeddings
-    for (const [index, chunk] of chunks.entries()) {
-      const embedding = embeddings[index];
+    // --------------------------------------------------
+    // 4. Create document
+    // --------------------------------------------------
 
-      await client.query(
-        `
-          INSERT INTO document_chunks (
-            document_id,
-            chunk_index,
-            content,
-            embedding_v2
-          )
-          VALUES ($1, $2, $3, $4::vector)
-        `,
-        [
-          document.id,
-          index,
-          chunk,
-          `[${embedding.join(",")}]`,
-        ],
-      );
+    const document = await prisma.document.create({
+      data: {
+        name: file.originalname,
+        fileType: file.mimetype,
+        fileSize: BigInt(file.size),
+        content,
+        fileData: new Uint8Array(file.buffer),
+      },
+    });
+
+    try {
+      // ------------------------------------------------
+      // 5. Create all chunks
+      // ------------------------------------------------
+
+      const chunkRecords = await prisma.documentChunk.createManyAndReturn({
+        data: chunks.map((chunk, index) => ({
+          documentId: document.id,
+          content: chunk,
+          chunkIndex: index,
+        })),
+        select: {
+          id: true,
+          chunkIndex: true,
+        },
+      });
+
+      // ------------------------------------------------
+      // 6. Save embeddings
+      //
+      // embeddingV2 is Unsupported("vector"), so Prisma
+      // cannot write it normally.
+      // ------------------------------------------------
+
+      for (const chunkRecord of chunkRecords) {
+        const embedding = embeddings[chunkRecord.chunkIndex];
+
+        if (!embedding) {
+          throw new Error(
+            `Missing embedding for chunk ${chunkRecord.chunkIndex}`,
+          );
+        }
+
+        const vector = `[${embedding.join(",")}]`;
+
+        await prisma.$executeRaw`
+          UPDATE "document_chunks"
+          SET "embedding_v2" = ${vector}::vector
+          WHERE "id" = ${chunkRecord.id}
+        `;
+      }
+    } catch (error) {
+      // -----------------------------------------------
+      // If chunk/embedding saving fails, remove the
+      // document that was already created.
+      // -----------------------------------------------
+
+      await prisma.document.delete({
+        where: {
+          id: document.id,
+        },
+      });
+
+      throw error;
     }
 
-    // 5. Commit everything
-    await client.query("COMMIT");
+    // --------------------------------------------------
+    // 7. Response
+    // --------------------------------------------------
 
     res.status(201).json({
-      ...document,
-      chunks: chunks.length,
-      embeddingModel: "voyage-4-lite",
-      embeddingDimensions: 1024,
+      message: "Document uploaded successfully",
+      document: {
+        id: document.id,
+        name: document.name,
+        fileType: document.fileType,
+        fileSize: document.fileSize?.toString(),
+        chunks: chunks.length,
+      },
     });
   } catch (error) {
-    if (client) {
-      await client.query("ROLLBACK");
-    }
-
-    console.error("Document upload failed:", error);
+    console.error("Upload document error:", error);
 
     res.status(500).json({
       message: "Failed to upload document",
     });
-  } finally {
-    client?.release();
   }
 };
