@@ -8,6 +8,7 @@ import { signupRouter } from "./routes/signup.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { companyRouter } from "./routes/company.routes.js";
 import { invitesRouter } from "./routes/invites.routes.js";
+import { scrapeRouter } from "./routes/scrape.routes.js";
 
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",
@@ -54,10 +55,7 @@ export function createApp(): Express {
   app.use("/api/documents", documentsRouter);
   app.use("/api/chat", chatRouter);
 
-  console.log("NODE_ENV:", process.env.NODE_ENV);
-  console.log("COOKIE_SECURE:", process.env.COOKIE_SECURE);
-  console.log("CORS_ORIGINS:", process.env.CORS_ORIGINS);
-  console.log("ALLOWED_ORIGINS:", allowedOrigins);
+  app.use("/api/scrape", scrapeRouter);
   return app;
 }
 
