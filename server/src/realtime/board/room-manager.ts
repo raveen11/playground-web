@@ -11,13 +11,15 @@ export interface ClientMeta {
   boardId: string;
   cursor: { x: number; y: number } | null;
   lastSeen: number;
+  cardCount?: number;
+  avatar?: string;
 }
 
 export class RoomManager {
   private rooms = new Map<string, Map<string, ClientMeta>>();
   private seqByBoard = new Map<string, number>();
 
-  join(boardId: string, meta: Omit<ClientMeta, "boardId" | "color" | "cursor" | "lastSeen"> & { color?: string }) {
+  join(boardId: string, meta: Omit<ClientMeta, "boardId" | "color" | "cursor" | "lastSeen"> & { color?: string; cardCount?: number; avatar?: string }) {
     let room = this.rooms.get(boardId);
     if (!room) {
       room = new Map();
@@ -32,6 +34,8 @@ export class RoomManager {
       color,
       cursor: null,
       lastSeen: Date.now(),
+      cardCount: meta.cardCount ?? 20,
+      avatar: meta.avatar,
     };
     room.set(meta.userId, client);
     return client;
@@ -57,6 +61,8 @@ export class RoomManager {
       role: c.role,
       color: c.color,
       cursor: c.cursor,
+      cardCount: c.cardCount ?? 20,
+      avatar: c.avatar,
     }));
   }
 

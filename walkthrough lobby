@@ -1,0 +1,73 @@
+# Walkthrough: Wrestling Lobby & Round Table UI
+
+Implemented the `/lobby` route with a real-time Round Table UI, the `Wrestler` and `WrestlingCard` database models in Prisma, default 20-card allocation per user, database seeding of 22 authentic wrestlers, and WebSocket multiplayer presence.
+
+## Summary of Changes
+
+### 1. Database Schema & Seeding (Prisma)
+- **`server/prisma/schema/wrestling.prisma`**:
+  - `Wrestler` model: `name`, `alias`, `tier` (`Legend`, `Champion`, `Superstar`), `attack`, `defense`, `speed`, `hp`, `finisher`, `avatar`.
+  - `WrestlingCard` model: belongs to `User` (`userId`), has a direct wrestler relation (`wrestlerId`, `wrestler`) and many-to-many wrestler relation (`wrestlers: Wrestler[]`).
+- **`server/prisma/schema/auth.prisma`**:
+  - Added `cardList WrestlingCard[]` to `User` model.
+- **`server/prisma/seed.ts`**:
+  - Seeded 22 authentic wrestlers (The Undertaker, The Rock, Stone Cold Steve Austin, John Cena, Roman Reigns, Brock Lesnar, Triple H, Shawn Michaels, etc.).
+  - Auto-assigned 20 default cards to seeded user.
+
+### 2. Backend Services & REST Endpoints
+- **`server/src/services/wrestling.service.ts`**:
+  - `ensureWrestlersSeeded()`: Ensures all 22 dummy wrestlers are in the database.
+  - `assignDefaultCardsToUser(userId)`: Ensures the user has 20 default wrestling cards in their `cardList`.
+  - `getUsersWithCards()`: Returns users with their `cardList` containing 20 wrestling cards and wrestler relations.
+  - `getAllWrestlers()`: Returns the full wrestling roster.
+- **`server/src/api/routes/wrestling.routes.ts` & `app.ts`**:
+  - Mounted `/api/wrestling`:
+    - `GET /api/wrestling/wrestlers`: Returns all wrestlers in the database.
+    - `GET /api/wrestling/users`: Returns users with `cardList` populated with 20 default cards.
+    - `POST /api/wrestling/assign-default/:userId`: Ensures a specific user receives their 20 cards.
+- **`server/src/api/controllers/company.controller.ts`**:
+  - `getCompanyUsers` now includes `cardList` with wrestler relations.
+- **`server/src/api/controllers/auth.controller.ts`**:
+  - `signup` automatically calls `assignDefaultCardsToUser` on user creation.
+
+### 3. WebSocket Real-time Multi-user Presence
+- **`server/src/realtime/board/room-manager.ts` & `server/src/realtime/websocket/server.ts`**:
+  - Enhanced `ClientMeta` and `PresenceUser` to include `cardCount` and `avatar`.
+  - `handleJoinMessage` supports joining `"lobby"` and broadcasting presence updates with user card counts to everyone at the table.
+- **`shared/src/schemas.ts`**:
+  - Exported `WrestlerSchema`, `WrestlingCardSchema`, and updated `PresenceUser` & `JoinRoomMsg`.
+
+### 4. Frontend Route & Round Table UI
+- **`frontend/src/app/lobby/page.tsx`**:
+  - New route `/lobby`. Connects to WebSocket server in room `"lobby"`, listens for `presence:update`, loads user deck and roster.
+- **`frontend/src/components/lobby/RoundTableLobby.tsx`**:
+  - Rich circular Round Table Arena UI:
+    - Calculates radial coordinates around the table (`cos(θ)`, `sin(θ)`).
+    - Seated user pedestals with custom presence colors, glowing online status beacons, user names, role pills, and "(YOU)" indicators.
+    - Empty chair placeholders for challengers.
+    - Click any seat to open that user's 20-card deck.
+    - Side drawer to inspect all connected & registered users with cards.
+- **`frontend/src/components/lobby/WrestlerCardDeck.tsx`**:
+  - Collectible card modal: Tier badges (Legendary Gold, Champion Crimson, Superstar Purple), stat progress bars (PWR, DEF, SPD, HP), finisher moves, search, and tier filters.
+- **`frontend/src/middleware.ts`**:
+  - Allowed `/lobby` for guests and authenticated users.
+
+---
+
+## Verification Results
+
+### 1. Database & REST Endpoints
+- Queried `GET http://localhost:3001/api/wrestling/wrestlers`:
+  - **Result**: Returned 22 wrestlers with complete stats and finisher moves.
+- Queried `GET http://localhost:3001/api/wrestling/users`:
+  - **Result**: Successfully returned users where each user has `cardList` containing 20 default wrestling cards with their wrestler relations.
+
+### 2. WebSocket Multiplayer Lobby Test
+- Ran automated test connecting two concurrent WebSocket clients (`The Rock` and `John Cena`) to `ws://localhost:3001` in room `"lobby"`.
+  - **Result**: Both clients received real-time `presence:update` and were simultaneously seated at the table with `cardCount: 20`.
+
+### 3. Frontend & Build Compilation
+- Executed `pnpm --dir frontend build` (Turbopack):
+  - **Result**: Compiled successfully with exit code 0. Statically generated `/lobby` route (10.8 kB).
+- Tested `http://localhost:3003/lobby`:
+  - **Result**: Returns HTTP 200 OK.

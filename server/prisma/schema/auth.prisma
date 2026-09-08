@@ -30,6 +30,7 @@ model User {
   invitedUsers    User[]        @relation("UserInvites")
   assignedTickets Ticket[]
   chatMessages    ChatMessage[]
+  cardList        WrestlingCard[]
 
   @@index([companyId])
 }

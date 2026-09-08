@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Define public routes that don't require authentication
-const publicRoutes = ["/login", "/signup"];
+const publicRoutes = ["/login", "/signup", "/lobby"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -10,17 +10,20 @@ export function middleware(request: NextRequest) {
   // We check for the 'access_token' cookie set by the backend
   const token = request.cookies.get("access_token")?.value;
 
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+  if (pathname.startsWith("/lobby")) {
+    return NextResponse.next();
+  }
 
-  // If the user has a token and is trying to access a public route (like login/signup),
-  // redirect them to the home page (dashboard)
-  if (token && isPublicRoute) {
+  const isAuthOnlyRoute = pathname.startsWith("/login") || pathname.startsWith("/signup");
+
+  // If the user has a token and is trying to access login/signup, redirect to home
+  if (token && isAuthOnlyRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
   // If the user doesn't have a token and is trying to access a protected route,
   // redirect them to the login page
-  if (!token && !isPublicRoute) {
+  if (!token && !isAuthOnlyRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

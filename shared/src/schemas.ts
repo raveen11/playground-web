@@ -67,6 +67,8 @@ export const JoinRoomMsg = z.object({
   userId: z.string(),
   name: z.string().min(1).max(32),
   role: RoleSchema.optional(),
+  cardCount: z.number().optional(),
+  avatar: z.string().optional(),
 });
 
 export const HeartbeatMsg = z.object({
@@ -152,12 +154,43 @@ export const InboundMessage = z.discriminatedUnion("type", [
   PaperMsg,
 ]);
 
+export const WrestlerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  alias: z.string().nullable().optional(),
+  tier: z.string(),
+  attack: z.number(),
+  defense: z.number(),
+  speed: z.number(),
+  hp: z.number(),
+  finisher: z.string(),
+  avatar: z.string().nullable().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+export type Wrestler = z.infer<typeof WrestlerSchema>;
+
+export const WrestlingCardSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  title: z.string().nullable().optional(),
+  wrestlerId: z.string().nullable().optional(),
+  wrestler: WrestlerSchema.nullable().optional(),
+  wrestlers: z.array(WrestlerSchema).optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+export type WrestlingCard = z.infer<typeof WrestlingCardSchema>;
+
 export const PresenceUser = z.object({
   userId: z.string(),
   name: z.string(),
   role: RoleSchema,
   color: z.string(),
   cursor: z.object({ x: z.number(), y: z.number() }).nullable(),
+  cardCount: z.number().optional(),
+  avatar: z.string().optional(),
+  cardList: z.array(WrestlingCardSchema).optional(),
 });
 
 export const PresenceUpdateMsg = z.object({

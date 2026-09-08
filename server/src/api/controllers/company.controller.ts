@@ -135,9 +135,23 @@ export const getCompanyUsers: RequestHandler = async (req, res) => {
         role: true,
         status: true,
         companyId: true,
+        cardList: {
+          include: {
+            wrestler: true,
+            wrestlers: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
       orderBy: { name: "asc" },
     });
+
+    const { assignDefaultCardsToUser } = await import("../../services/wrestling.service.js");
+    for (const u of users) {
+      if (!u.cardList || u.cardList.length < 20) {
+        u.cardList = await assignDefaultCardsToUser(u.id);
+      }
+    }
 
     res.json(users);
   } catch (error) {

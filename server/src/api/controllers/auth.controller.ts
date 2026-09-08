@@ -63,6 +63,11 @@ export const signup: RequestHandler = async (req, res) => {
       return { company, user };
     });
 
+    const { assignDefaultCardsToUser } = await import("../../services/wrestling.service.js");
+    await assignDefaultCardsToUser(result.user.id).catch((err) => {
+      console.error("Failed to assign default cards on signup:", err);
+    });
+
     const tokens = await createSessionTokens(result.user);
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
 

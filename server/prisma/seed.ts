@@ -29,6 +29,13 @@ async function seed() {
   });
 
   console.info(`Seeded super_admin: ${user.email} (${user.id})`);
+
+  const { ensureWrestlersSeeded, assignDefaultCardsToUser } = await import("../src/services/wrestling.service.js");
+  const wrestlers = await ensureWrestlersSeeded();
+  console.info(`Seeded ${wrestlers.length} wrestlers.`);
+
+  const userCards = await assignDefaultCardsToUser(user.id);
+  console.info(`Assigned ${userCards.length} default wrestling cards to user: ${user.name}`);
 }
 
 seed()

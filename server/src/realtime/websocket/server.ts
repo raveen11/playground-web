@@ -107,10 +107,10 @@ function ensureBoardExists(boardId: string) {
     title: string;
     order: number;
   }> = [
-    { title: "Todo", order: 10 },
-    { title: "In Progress", order: 20 },
-    { title: "Done", order: 30 },
-  ];
+      { title: "Todo", order: 10 },
+      { title: "In Progress", order: 20 },
+      { title: "Done", order: 30 },
+    ];
 
   const newColumns: Column[] = defaultColumns.map((column) => ({
     id: crypto.randomUUID(),
@@ -174,6 +174,8 @@ async function handleJoinMessage(
     userId: data.userId,
     name: data.name,
     role,
+    cardCount: data.cardCount ?? 20,
+    avatar: data.avatar,
   });
 
   const state = loadBoardState(data.boardId);

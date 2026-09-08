@@ -173,6 +173,8 @@ export class WebSocketClient {
     userId: string;
     name: string;
     role?: "viewer" | "editor" | "admin";
+    cardCount?: number;
+    avatar?: string;
   }): boolean {
     this.heartbeatUserId = params.userId;
     this.startHeartbeat();
@@ -183,6 +185,8 @@ export class WebSocketClient {
       userId: params.userId,
       name: params.name,
       role: params.role,
+      cardCount: params.cardCount,
+      avatar: params.avatar,
     });
   }
 

@@ -68,7 +68,7 @@ export default function Dashboard({
     }
 
     initUser();
-  } , []);
+  }, []);
 
   // 2. Load boards and company users from PostgreSQL
   useEffect(() => {
@@ -192,6 +192,16 @@ export default function Dashboard({
             </Link>
           </div>
 
+          <div className="rounded-2xl bg-amber-50 p-4 text-xs text-amber-900 border border-amber-200 flex items-center justify-between">
+            <span className="font-semibold">Multiplayer Wrestling Arena</span>
+            <Link
+              href="/lobby"
+              className="rounded-xl bg-amber-500 px-4 py-1.5 font-bold text-slate-950 transition hover:bg-amber-400 shadow-sm"
+            >
+              Enter /lobby →
+            </Link>
+          </div>
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200" />
@@ -238,6 +248,8 @@ export default function Dashboard({
     );
   }
 
+  console.log('ABCD-presence', presence)
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 sm:px-6 py-8 text-slate-900">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -275,6 +287,13 @@ export default function Dashboard({
                   ))}
                 </select>
               ) : null}
+
+              <Link
+                href="/lobby"
+                className="flex items-center gap-1.5 rounded-2xl bg-amber-500 hover:bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 transition shadow-sm"
+              >
+                <span>🎴</span> Wrestling Lobby
+              </Link>
 
               <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs text-slate-700 flex items-center gap-2 border border-slate-100">
                 <span className="h-6 w-6 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-[10px]">

@@ -1,0 +1,39 @@
+model Wrestler {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  alias     String?
+  tier      String   @default("Superstar")
+  attack    Int      @default(80)
+  defense   Int      @default(80)
+  speed     Int      @default(80)
+  hp        Int      @default(100)
+  finisher  String   @default("Power Slam")
+  avatar    String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cards       WrestlingCard[] @relation("CardWrestlers")
+  singleCards WrestlingCard[] @relation("SingleWrestlerCard")
+
+  @@map("wrestlers")
+}
+
+model WrestlingCard {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String?
+
+  wrestlerId String?   @map("wrestler_id") @db.Uuid
+  wrestler   Wrestler? @relation("SingleWrestlerCard", fields: [wrestlerId], references: [id], onDelete: SetNull)
+
+  wrestlers Wrestler[] @relation("CardWrestlers")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([wrestlerId])
+  @@map("wrestling_cards")
+}

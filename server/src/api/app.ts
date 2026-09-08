@@ -13,6 +13,7 @@ import { columnRouter } from "./routes/column.routes.js";
 import { ticketRouter } from "./routes/ticket.routes.js";
 import { socialMediaRouter } from "./routes/social-media.routes.js";
 import { scrapeRouter } from "./routes/scrape.routes.js";
+import { wrestlingRouter } from "./routes/wrestling.routes.js";
 
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",
@@ -65,6 +66,7 @@ export function createApp(): Express {
   app.use("/api/chat", chatRouter);
 
   app.use("/api/scrape", scrapeRouter);
+  app.use("/api/wrestling", wrestlingRouter);
   return app;
 }
 

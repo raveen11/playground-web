@@ -37,6 +37,32 @@ export interface AcceptInviteRequest {
   password?: string;
 }
 
+export interface WrestlerData {
+  id: string;
+  name: string;
+  alias?: string | null;
+  tier: string;
+  attack: number;
+  defense: number;
+  speed: number;
+  hp: number;
+  finisher: string;
+  avatar?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WrestlingCardData {
+  id: string;
+  userId: string;
+  title?: string | null;
+  wrestlerId?: string | null;
+  wrestler?: WrestlerData | null;
+  wrestlers?: WrestlerData[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface CompanyUser {
   id: string;
   name: string;
@@ -44,7 +70,10 @@ export interface CompanyUser {
   role: string;
   status: string;
   companyId?: string | null;
+  cardList?: WrestlingCardData[];
 }
+
+export type UserWithCards = CompanyUser;
 
 export interface BoardData {
   id: string;
@@ -371,5 +400,25 @@ export const api = {
       fetchApi<{ message: string; id: string }>(`/social-media/${id}`, {
         method: "DELETE",
       }),
+  },
+
+  wrestling: {
+    getWrestlers: () =>
+      fetchApi<WrestlerData[]>("/wrestling/wrestlers", {
+        method: "GET",
+      }),
+
+    getUsers: () =>
+      fetchApi<UserWithCards[]>("/wrestling/users", {
+        method: "GET",
+      }),
+
+    assignDefault: (userId: string) =>
+      fetchApi<{ message: string; cardsCount: number; cards: WrestlingCardData[] }>(
+        `/wrestling/assign-default/${userId}`,
+        {
+          method: "POST",
+        },
+      ),
   },
 };
