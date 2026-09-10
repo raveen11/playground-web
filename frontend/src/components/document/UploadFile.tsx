@@ -54,8 +54,40 @@ export default function UploadFile() {
     }
   }
 
+  async function handleScrape() {
+    try {
+      // setLoading(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/scrape`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: "https://www.ekbana.com/",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to scrape URL");
+      }
+
+      const result = await response.json();
+      console.log('ABCD-res', result)
+      // setData(result);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      // setLoading(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-xl p-8">
+      <button onClick={handleScrape}> Scrape Doc</button>
       <h1 className="mb-6 text-2xl font-bold">
         Upload Document
       </h1>
