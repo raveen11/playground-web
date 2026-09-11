@@ -11,6 +11,7 @@ export interface ClientMeta {
   boardId: string;
   cursor: { x: number; y: number } | null;
   lastSeen: number;
+  userData: any;
 }
 
 export class RoomManager {
@@ -57,6 +58,7 @@ export class RoomManager {
       role: c.role,
       color: c.color,
       cursor: c.cursor,
+      userData: c.userData,
     }));
   }
 

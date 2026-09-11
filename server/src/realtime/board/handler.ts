@@ -10,6 +10,7 @@ import {
   handleCardMove,
   handleCardUpdate,
   handleCursorMove,
+  handleGameThrowCard,
   handleHeartbeat,
   handleJoinMessage,
   handlePaperData,
@@ -91,6 +92,13 @@ export function handleBoardMessage(
 
     case "data:paper":
       return handlePaperData(
+        ws,
+        result.data,
+        context,
+      );
+
+    case "game:throw-card":
+      return handleGameThrowCard(
         ws,
         result.data,
         context,

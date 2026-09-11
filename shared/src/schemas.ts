@@ -67,6 +67,7 @@ export const JoinRoomMsg = z.object({
   userId: z.string(),
   name: z.string().min(1).max(32),
   role: RoleSchema.optional(),
+  userData: z.any(),
 });
 
 export const HeartbeatMsg = z.object({
@@ -103,6 +104,22 @@ export const PaperMsg = z.object({
   paperData: z.string(),
 });
 
+
+export const GameThrowCardMsg = z.object({
+  type: z.literal("game:throw-card"),
+  boardId: z.string(),
+  userId: z.string(),
+  card: z.any(),
+});
+
+
+export const GameReceiveThrowCardMsg = z.object({
+  type: z.literal("game:receive-throw-card"),
+  boardId: z.string(),
+  userId: z.string(),
+  card: z.any(),
+});
+
 const PositionSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
 const SizeSchema = z.object({ width: z.number().positive(), height: z.number().positive() });
 const ElementStyleSchema = z.object({
@@ -136,6 +153,7 @@ export const WhiteboardOperationMsg = z.object({
   operation: z.object({ operationId: z.string().min(1), documentId: z.string().min(1), userId: z.string().min(1), version: z.number().int().nonnegative(), timestamp: z.number().int().nonnegative(), operation: WhiteboardOperationSchema }),
 });
 
+
 export const InboundMessage = z.discriminatedUnion("type", [
   CursorMoveMsg,
   CardMoveMsg,
@@ -150,6 +168,7 @@ export const InboundMessage = z.discriminatedUnion("type", [
   TypingEvent,
   RequestSyncMsg,
   PaperMsg,
+  GameThrowCardMsg,
 ]);
 
 export const PresenceUser = z.object({
@@ -158,6 +177,7 @@ export const PresenceUser = z.object({
   role: RoleSchema,
   color: z.string(),
   cursor: z.object({ x: z.number(), y: z.number() }).nullable(),
+  userData: z.any(),
 });
 
 export const PresenceUpdateMsg = z.object({
@@ -287,3 +307,5 @@ export type Column = z.infer<typeof ColumnSchema>;
 export type WhiteboardJoinMsg = z.infer<typeof WhiteboardJoinMsg>;
 export type WhiteboardLeaveMsg = z.infer<typeof WhiteboardLeaveMsg>;
 export type WhiteboardOperationMsg = z.infer<typeof WhiteboardOperationMsg>;
+export type GameThrowCardMsg = z.infer<typeof GameThrowCardMsg>;
+export type GameReceiveThrowCardMsg = z.infer<typeof GameReceiveThrowCardMsg>;

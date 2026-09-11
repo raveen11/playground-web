@@ -17,6 +17,7 @@ import type {
   SyncStateMsg,
   TypingEvent,
   CursorMoveMsg,
+  GameThrowCardMsg
 } from "@kanban/shared";
 
 export type ChatMessage = ChatHistoryMsg["messages"][number];
@@ -36,6 +37,7 @@ export type ClientOutgoingMessage =
   | ChatMessageEvent
   | TypingEvent
   | PaperMsg
+  | GameThrowCardMsg
   | { type: "connection:WS" };
 
 /**
@@ -58,6 +60,7 @@ export type ServerEventMap = {
   };
   "column:delete": ColumnDeleteMsg;
   "data:paper": PaperMsg;
+  "game:throw-card": GameThrowCardMsg;
   error: ErrorMsg;
 };
 

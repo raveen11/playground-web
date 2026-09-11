@@ -19,6 +19,7 @@ import {
   type RequestSyncMsg,
   type SyncStateMsg,
   RoleSchema,
+  GameThrowCardMsg,
 } from "@kanban/shared";
 import { sendError } from "../error.js";
 
@@ -59,6 +60,7 @@ export async function handleJoinMessage(
     userId: data.userId,
     name: data.name,
     role,
+    userData: data.userData,
   });
 
   try {
@@ -501,4 +503,20 @@ export function handleCursorMove(
     type: "presence:update",
     users: context.rooms.listPresence(client.boardId),
   });
+}
+
+
+export function handleGameThrowCard(
+  ws: WebSocket,
+  data: GameThrowCardMsg,
+  context: RealtimeContext,
+) {
+  const client = getClient(ws, context);
+  console.log('ABCD--hhhhhh', data)
+  if (!client) {
+    sendError(ws, "Not joined to a board.", "not_joined");
+    return;
+  }
+
+  context.rooms.broadcast(client.boardId, data);
 }

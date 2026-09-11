@@ -6,7 +6,8 @@ import type { WebSocketClient } from "@/websocket";
 export type RoomUser = {
   userId: string;
   name: string;
-  role: "viewer" | "editor" | "admin";
+  role: string;
+  userData?: any;
 };
 
 /** Single joinRoom for the shared parent connection. */
@@ -17,13 +18,14 @@ export function useRoomJoin(
   boardId: string,
 ) {
   useEffect(() => {
-    if (!client || !connected || !user) return;
+    if (!client || !connected || !user || !boardId) return;
 
     client.joinRoom({
       boardId,
       userId: user.userId,
       name: user.name,
       role: user.role,
+      userData: user
     });
   }, [client, connected, user, boardId]);
 }
