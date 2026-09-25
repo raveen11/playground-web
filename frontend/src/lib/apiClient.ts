@@ -198,6 +198,11 @@ export const api = {
         method: "POST",
         data,
       }),
+
+    acceptInvite: (id: string) =>
+      fetchApi(`/company/users/${id}/accept-invite`, {
+        method: "PATCH",
+      }),
   },
 
   invites: {

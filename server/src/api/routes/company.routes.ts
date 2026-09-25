@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from "express";
 import {
   createCompanyUser,
   getCompanyUsers,
+  manuallAcceptUser,
 } from "../controllers/company.controller.js";
 import {
   requireAuth,
@@ -21,3 +22,5 @@ companyRouter.post(
   validateBody(createCompanyUserSchema),
   createCompanyUser,
 );
+
+companyRouter.patch("/users/:id/accept-invite", requireAuth, manuallAcceptUser);

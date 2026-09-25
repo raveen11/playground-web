@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { api } from "@/lib/apiClient";
+import { useEffect, useState } from "react";
+import { api, CompanyUser } from "@/lib/apiClient";
 
 export default function CompanyUsersPage() {
   const [formData, setFormData] = useState({
@@ -13,6 +13,20 @@ export default function CompanyUsersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>();
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const users = await api.company.listUsers();
+        setCompanyUsers(users);
+      } catch {
+        // Silently fail if unauthenticated
+      }
+    }
+    fetchUsers()
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -34,9 +48,10 @@ export default function CompanyUsersPage() {
       await api.company.createUser({
         name: formData.name,
         email: formData.email,
-        password: formData.password || undefined,
+        password: 'password1',
         sendInvite: formData.sendInvite,
       });
+      console.log('ABCD---formData', formData)
       setSuccess(`User ${formData.email} added successfully!`);
       setFormData({ name: "", email: "", password: "", sendInvite: true });
     } catch (err: unknown) {
@@ -49,6 +64,21 @@ export default function CompanyUsersPage() {
       setIsLoading(false);
     }
   };
+
+  const handleAcceptInvite = async (id: string) => {
+    try {
+      await api.company.acceptInvite(id);
+      setSuccess(`User ${id} accepted invite successfully!`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to accept invite");
+      } else {
+        setError("Failed to add user");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10 px-4 sm:px-6 lg:px-8">
@@ -158,7 +188,41 @@ export default function CompanyUsersPage() {
               </div>
             </form>
           </div>
+          <div className="p-4">
+            {companyUsers?.map((user) => (
+              <div key={user.id} className="flex items-center justify-between py-3">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 h-10 w-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                    <span className="text-gray-500 dark:text-gray-400 font-medium">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {user.name}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-x-4">
+                  {user?.status === 'invited' && (
+                    <button onClick={() => handleAcceptInvite(user.id)} className="bg-green-600 border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50">Accept Invite</button>
+                  )}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    {user?.status}
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                    {user.role}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
+
       </div>
     </div>
   );

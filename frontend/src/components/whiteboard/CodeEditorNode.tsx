@@ -18,6 +18,8 @@ import { useCollaborativeMonaco } from "../../features/collaboration/hooks/useCo
 import { createUpdateOperation } from "../../features/collaboration/operations/operationFactory";
 import { CODE_LANGUAGE_OPTIONS } from "./codeLanguages";
 import { CodeTerminal } from "./CodeTerminal";
+import ProjectImporter from "./ProjectImporter";
+import Random from "@/app/random/page";
 
 export const CODE_NODE_TYPE = "codeEditor";
 
@@ -92,13 +94,14 @@ function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNod
     );
   };
 
-  console.log('ABCD-runResult',runResult)
+  console.log('ABCD-runResult', runResult)
+
+
 
   return (
     <div
-      className={`flex h-full w-full flex-col overflow-hidden rounded-xl border bg-white shadow-lg transition ${
-        selected ? "border-blue-500 ring-2 ring-blue-200" : "border-slate-300"
-      }`}
+      className={`flex h-full w-full flex-col overflow-hidden rounded-xl border bg-white shadow-lg transition ${selected ? "border-blue-500 ring-2 ring-blue-200" : "border-slate-300"
+        }`}
     >
       <NodeResizer
         isVisible={selected}
@@ -152,7 +155,7 @@ function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNod
               </option>
             ))}
           </select>
-          
+
           {canRun && (
             <button
               type="button"
@@ -191,7 +194,8 @@ function CodeEditorNodeComponent({ id, data, selected }: NodeProps<CodeEditorNod
         nowheel - scrolling code must not zoom the canvas
         nopan   - selecting text must not pan the canvas
       */}
-      <div className="nodrag nowheel nopan min-h-0 flex-1">
+      <div className="nodrag nowheel nopan min-h-0 flex-1 border-[1px]" style={{ display: 'flex', gap: '2px' }}>
+        <Random />
         <Editor
           path={editorPath}
           defaultValue={initialContentRef.current}

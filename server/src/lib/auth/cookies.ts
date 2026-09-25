@@ -22,7 +22,7 @@ export function setAuthCookies(
 ): void {
   res.cookie(ACCESS_COOKIE, accessToken, {
     ...baseCookieOptions(),
-    maxAge: 1000 * 60 * 15,
+    maxAge: 1000 * 60 * 60 * 60 * 60,
   });
 
   res.cookie(REFRESH_COOKIE, refreshToken, {

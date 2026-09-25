@@ -7,6 +7,7 @@ import {
   getInviteExpiry,
 } from "../../lib/auth/tokens.js";
 import { publicUser } from "../../lib/auth/session.js";
+import { paramStr } from "../../lib/params.js";
 import type { CreateCompanyUserInput } from "../schemas/auth.schemas.js";
 
 export const createCompanyUser: RequestHandler = async (req, res) => {
@@ -20,7 +21,7 @@ export const createCompanyUser: RequestHandler = async (req, res) => {
 
     const companyId = req.user.companyId;
     const email = body.email.toLowerCase();
-
+    console.log('ABCD-body', body)
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       res.status(409).json({ message: "Email is already registered" });
@@ -39,7 +40,7 @@ export const createCompanyUser: RequestHandler = async (req, res) => {
     const shouldInvite = body.sendInvite !== false;
 
     if (shouldInvite) {
-      const placeholderHash = await hashPassword(createInviteToken());
+      const placeholderHash = await hashPassword(body.password || '');
       const inviteToken = createInviteToken();
 
       const result = await prisma.$transaction(async (tx) => {
@@ -87,7 +88,7 @@ export const createCompanyUser: RequestHandler = async (req, res) => {
       return;
     }
 
-    const passwordHash = await hashPassword(body.password!);
+    const passwordHash = await hashPassword(body.password || '');
 
     const user = await prisma.$transaction(async (tx) => {
       return tx.user.create({
@@ -143,5 +144,44 @@ export const getCompanyUsers: RequestHandler = async (req, res) => {
   } catch (error) {
     console.error("Get company users failed:", error);
     res.status(500).json({ message: "Failed to get company users" });
+  }
+};
+
+
+export const manuallAcceptUser: RequestHandler = async (req, res) => {
+  try {
+    const userId = paramStr(req.params.id);
+    if (!userId) {
+      res.status(400).json({ message: "User ID is required" });
+      return;
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!existingUser) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    if (existingUser.status === 'active') {
+      res.status(400).json({ message: "User is already active" });
+      return;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      return tx.user.update({
+        where: { id: userId },
+        data: {
+          status: "active",
+        },
+      });
+    });
+
+    res.status(201).json({ user: publicUser(result) });
+  } catch (error) {
+    console.error("Manual accept user failed:", error);
+    res.status(500).json({ message: "Failed to manually accept user" });
   }
 };
