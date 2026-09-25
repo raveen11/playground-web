@@ -7,7 +7,7 @@ export type RoomUser = {
   userId: string;
   name: string;
   role: string;
-  userData?: any;
+  userData?: Record<string, unknown> | null;
 };
 
 /** Single joinRoom for the shared parent connection. */
@@ -24,8 +24,8 @@ export function useRoomJoin(
       boardId,
       userId: user.userId,
       name: user.name,
-      role: user.role,
-      userData: user
+      role: (user.role === "admin" || user.role === "viewer" ? user.role : "editor") as "viewer" | "editor" | "admin",
+      userData: user,
     });
   }, [client, connected, user, boardId]);
 }

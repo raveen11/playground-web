@@ -34,10 +34,17 @@ interface DirectoryPickerOptions {
     startIn?: string;
 }
 
-interface Window {
-    showDirectoryPicker?: (
-        options?: DirectoryPickerOptions
-    ) => Promise<FileSystemDirectoryHandle>;
+declare global {
+    interface FileSystemDirectoryHandle {
+        entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+        values(): AsyncIterableIterator<FileSystemHandle>;
+        keys(): AsyncIterableIterator<string>;
+    }
+    interface Window {
+        showDirectoryPicker?: (
+            options?: DirectoryPickerOptions
+        ) => Promise<FileSystemDirectoryHandle>;
+    }
 }
 
 // --------------------------------------------------
@@ -140,7 +147,7 @@ async function readDirectory(
 
         if (handle.kind === "directory") {
             const folderChildren = await readDirectory(
-                handle,
+                handle as FileSystemDirectoryHandle,
                 currentPath,
                 files
             );

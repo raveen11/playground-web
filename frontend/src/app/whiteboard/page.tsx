@@ -7,6 +7,7 @@
  * for synchronisation.
  */
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
@@ -69,6 +70,15 @@ export default function WhiteboardPage() {
     return (
       <main className="grid h-screen place-items-center bg-slate-50 p-6">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
+          <div className="mb-4">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
+            >
+              <span>←</span>
+              <span>Back to Portfolio</span>
+            </Link>
+          </div>
           <h1 className="text-2xl font-bold text-slate-900">Collaborative Code Canvas</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Drop code editors onto an infinite canvas and type together in real time.

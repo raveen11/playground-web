@@ -1,6 +1,6 @@
 "use client";
 
-import { ImportedProject } from "@/components/whiteboard/folderImporter";
+import { ImportedProject, ProjectNode } from "@/components/whiteboard/folderImporter";
 import { importFolder } from "@/components/whiteboard/folderImporter";
 import { useState } from "react";
 
@@ -20,15 +20,16 @@ export default function Random() {
             setExpandedNodes(prev => new Set([...prev, nodeId]))
         }
     }
-    const renderChildern = (child: any) => {
+    const renderChildern = (child: ProjectNode) => {
+        const isFolder = child.type === "folder";
         return (
             <ol key={child.id} >
                 <div style={{ display: 'flex', gap: '5px' }}>
-                    <div>{child?.type == "folder" ? '>' : 'F'}</div>
+                    <div>{isFolder ? '>' : 'F'}</div>
                     <div onClick={() => renderNode(child.id)}>{child?.name}</div>
                 </div>
                 <div className="ml-5" style={{ display: expandedNodes.has(child.id) ? 'block' : 'none' }}>
-                    {child?.children?.map(renderChildern)}
+                    {isFolder && child.children?.map(renderChildern)}
                 </div>
             </ol>
         )

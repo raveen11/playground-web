@@ -19,6 +19,8 @@ type User = {
     name: string;
     role: string;
     email?: string;
+    usersList?: WrestlingCard[];
+    userData?: Record<string, unknown> | null;
 };
 
 type ThrownCardsByUser = Record<string, WrestlingCard[]>;
