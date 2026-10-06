@@ -103,7 +103,7 @@ export const login: RequestHandler = async (req, res) => {
     const tokens = await createSessionTokens(user);
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
 
-    res.json({ user: publicUser(user) });
+    res.json({ user: publicUser(user), tokens });
   } catch (error) {
     console.error("Login failed:", error);
     res.status(500).json({ message: "Failed to login" });

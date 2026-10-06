@@ -17,6 +17,7 @@ import { scrapeRouter } from "./routes/scrape.routes.js";
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",
   "http://localhost:3003",
+  "http://localhost:8081",
   "https://playgroundweb.vercel.app",
 ];
 
